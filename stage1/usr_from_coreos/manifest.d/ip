@@ -1,0 +1,16 @@
+bin/ip
+bin/ping
+bin/stty
+bin/tty
+bin/vim
+bin/netstat
+sbin/brctl
+sbin/bridge
+sbin/arp
+sbin/arping
+sbin/arp
+sbin/xtables-multi
+sbin/iptables
+sbin/iptables-save
+sbin/ethtool
+

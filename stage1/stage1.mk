@@ -86,7 +86,7 @@ endif
 $(STAGE1_ACI): ACIDIR := $(ACIDIR)
 $(STAGE1_ACI): ACTOOL := $(ACTOOL)
 $(STAGE1_ACI): $(ACTOOL_STAMP) | $(BINDIR)
-	"$(ACTOOL)" build --overwrite "$(ACIDIR)" "$@"
+	"$(ACTOOL)" build --overwrite --no-compression "$(ACIDIR)" "$@"
 
 $(STAGE1_STAMPS): $(STAGE1_USR_STAMPS)
 
