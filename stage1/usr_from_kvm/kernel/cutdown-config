@@ -1330,7 +1330,7 @@ CONFIG_DEVPTS_MULTIPLE_INSTANCES=y
 #
 # Serial drivers
 #
-# CONFIG_SERIAL_8250 is not set
+CONFIG_SERIAL_8250=y
 
 #
 # Non-8250 serial port support
