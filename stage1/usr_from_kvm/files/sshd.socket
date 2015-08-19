@@ -1,0 +1,10 @@
+[Unit]
+Description=OpenSSH Server Socket
+DefaultDependencies=no
+
+[Socket]
+ListenStream=22
+Accept=yes
+
+[Install]
+WantedBy=default.target
