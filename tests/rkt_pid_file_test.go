@@ -28,14 +28,15 @@ import (
 
 func preparePidFileRace(t *testing.T, ctx *rktRunCtx, sleepImage string) (*gexpect.ExpectSubprocess, *gexpect.ExpectSubprocess, string, string) {
 	// Start the pod
-	runCmd := fmt.Sprintf("%s --debug --insecure-skip-verify run --mds-register=false --interactive %s", ctx.cmd(), sleepImage)
+	runCmd := fmt.Sprintf("%s %s --mds-register=false --interactive %s", ctx.cmd(), ctx.defaultRunCommand(), sleepImage)
 	t.Logf("%s", runCmd)
+
 	runChild, err := gexpect.Spawn(runCmd)
 	if err != nil {
 		t.Fatalf("Cannot exec rkt")
 	}
-
-	err = expectWithOutput(runChild, "Enter text:")
+	// err = expectWithOutput(runChild, "Enter text:")
+	err = expectCommon(runChild, "Enter text:", 15*time.Second)
 	if err != nil {
 		t.Fatalf("Waited for the prompt but not found: %v", err)
 	}
@@ -80,6 +81,10 @@ func TestPidFileDelayedStart(t *testing.T) {
 	ctx := newRktRunCtx()
 	defer ctx.cleanup()
 
+	if ctx.getFlavor() == "kvm" {
+		t.Skipf("TODO: entering not supported yet!")
+	}
+
 	runChild, enterChild, pidFileName, pidFileNameBackup := preparePidFileRace(t, ctx, sleepImage)
 
 	// Restore ppid file so the "enter" command can find it
@@ -110,24 +115,46 @@ func TestPidFileDelayedStart(t *testing.T) {
 // Check that "enter" doesn't wait forever for the ppid file when the pod is terminated
 func TestPidFileAbortedStart(t *testing.T) {
 	sleepImage := patchTestACI("rkt-inspect-sleep.aci", "--exec=/inspect --read-stdin")
-	defer os.Remove(sleepImage)
+	// defer os.Remove(sleepImage)
 
 	ctx := newRktRunCtx()
 	defer ctx.cleanup()
 
 	runChild, enterChild, _, _ := preparePidFileRace(t, ctx, sleepImage)
 
-	// Terminate the pod with the escape sequence: ^]^]^]
-	if err := runChild.SendLine("\035\035\035"); err != nil {
+	// flavor specific expectation and API to impose abort
+	var (
+		expectationFailed func(err error) bool
+		terminateSequence string
+	)
+
+	if ctx.getFlavor() == "kvm" {
+		// lkvm: ^A^X
+		terminateSequence = "\001\030"
+		expectationFailed = func(err error) bool {
+			return err != nil
+		}
+	} else {
+		// nspwan : ^]^]^]
+		terminateSequence = "\035\035\035"
+		expectationFailed = func(err error) bool {
+			return err == nil || err.Error() != "exit status 1"
+		}
+	}
+
+	if err := runChild.SendLine(terminateSequence); err != nil {
 		t.Fatalf("Failed to terminate the pod: %v", err)
 	}
-	if err := runChild.Wait(); err.Error() != "exit status 1" {
+	err := runChild.Wait()
+	if expectationFailed(err) {
 		t.Fatalf("rkt didn't terminate as expected: %v", err)
 	}
 
 	// Now the "enter" command terminates quickly
 	before := time.Now()
-	if err := enterChild.Wait(); err.Error() != "exit status 1" {
+	// if err := enterChild.Wait(); expectationFailed(err) { // TODO: enter is not implemented yet, and returns original 1 exit code
+	// enter should end up with err and exit status equals to 1 (for any flavor)
+	if err := enterChild.Wait(); err == nil || err.Error() != "exit status 1" {
 		t.Fatalf("rkt enter didn't terminate as expected: %v", err)
 	}
 	delay := time.Now().Sub(before)

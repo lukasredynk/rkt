@@ -85,7 +85,7 @@ func TestSocketActivation(t *testing.T) {
 
 	rnd := r.Int()
 
-	cmd := fmt.Sprintf("%s --insecure-skip-verify run --mds-register=false %s", ctx.cmd(), echoImage)
+	cmd := fmt.Sprintf("%s %s %s", ctx.cmd(), ctx.defaultRunCommand(), echoImage)
 	serviceContent := fmt.Sprintf(rktTestingEchoService, cmd)
 	serviceTarget := fmt.Sprintf("rkt-testing-socket-activation-%d.service", rnd)
 

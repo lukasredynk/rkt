@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 	};
 	static const mount_point mount_table[] = {
 		{ "/proc", "/proc", "bind", NULL, MS_BIND|MS_REC },
-		{ "/sys", "/sys", "bind", NULL, MS_BIND|MS_REC },
+		{ "/sys", "/sys", "bind", NULL, MS_BIND|MS_RDONLY },
 		{ "/dev/shm", "/dev/shm", "bind", NULL, MS_BIND },
 		{ "/dev/pts", "/dev/pts", "bind", NULL, MS_BIND },
 	};

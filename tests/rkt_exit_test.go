@@ -31,11 +31,11 @@ func TestExitCode(t *testing.T) {
 		defer ctx.cleanup()
 
 		cmd := fmt.Sprintf(`/bin/sh -c "`+
-			`%s --debug --insecure-skip-verify run --mds-register=false %s ;`+
+			`%s --debug %s %s ;`+
 			`UUID=$(%s list --full|grep exited|awk '{print $1}') ;`+
 			`echo -n 'status=' ;`+
 			`%s status $UUID|grep '^app-rkt-inspect.*=[0-9]*$'|cut -d= -f2"`,
-			ctx.cmd(), imageFile,
+			ctx.cmd(), ctx.defaultRunCommand(), imageFile,
 			ctx.cmd(),
 			ctx.cmd())
 		t.Logf("%s\n", cmd)

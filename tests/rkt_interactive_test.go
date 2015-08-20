@@ -34,42 +34,42 @@ var interactiveTests = []struct {
 	{
 		`Check tty without interactive`,
 		[]string{"--exec=/inspect --check-tty"},
-		`--debug --insecure-skip-verify run --mds-register=false ^INTERACTIVE^`,
+		`--debug ^RUN_CMD^ ^INTERACTIVE^`,
 		``,
 		`stdin is not a terminal`,
 	},
 	{
 		`Check tty without interactive (with parameter)`,
 		[]string{"--exec=/inspect"},
-		`--debug --insecure-skip-verify run --mds-register=false ^INTERACTIVE^ -- --check-tty`,
+		`--debug ^RUN_CMD^ ^INTERACTIVE^ -- --check-tty`,
 		``,
 		`stdin is not a terminal`,
 	},
 	{
 		`Check tty with interactive`,
 		[]string{"--exec=/inspect --check-tty"},
-		`--debug --insecure-skip-verify run --mds-register=false --interactive ^INTERACTIVE^`,
+		`--debug ^RUN_CMD^ --interactive ^INTERACTIVE^`,
 		``,
 		`stdin is a terminal`,
 	},
 	{
 		`Check tty with interactive (with parameter)`,
 		[]string{"--exec=/inspect"},
-		`--debug --insecure-skip-verify run --mds-register=false --interactive ^INTERACTIVE^ -- --check-tty`,
+		`--debug ^RUN_CMD^ --interactive ^INTERACTIVE^ -- --check-tty`,
 		``,
 		`stdin is a terminal`,
 	},
 	{
 		`Reading from stdin`,
 		[]string{"--exec=/inspect --read-stdin"},
-		`--debug --insecure-skip-verify run --mds-register=false --interactive ^INTERACTIVE^`,
+		`--debug ^RUN_CMD^ --interactive ^INTERACTIVE^`,
 		`Saluton`,
 		`Received text: Saluton`,
 	},
 	{
 		`Reading from stdin (with parameter)`,
 		[]string{"--exec=/inspect"},
-		`--debug --insecure-skip-verify run --mds-register=false --interactive ^INTERACTIVE^ -- --read-stdin`,
+		`--debug ^RUN_CMD^ --interactive ^INTERACTIVE^ -- --read-stdin`,
 		`Saluton`,
 		`Received text: Saluton`,
 	},
@@ -87,6 +87,7 @@ func TestInteractive(t *testing.T) {
 
 		rktCmd := fmt.Sprintf("%s %s", ctx.cmd(), tt.rktArgs)
 		rktCmd = strings.Replace(rktCmd, "^INTERACTIVE^", aciFileName, -1)
+		rktCmd = strings.Replace(rktCmd, "^RUN_CMD^", ctx.defaultRunCommand(), -1)
 		t.Logf("Command: %v", rktCmd)
 		child, err := gexpect.Spawn(rktCmd)
 		if err != nil {

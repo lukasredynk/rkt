@@ -68,7 +68,7 @@ func TestAppIsolatorMemory(t *testing.T) {
 	aciFileName := patchTestACI("rkt-inspect-isolators.aci", memoryTest.aciBuildArgs...)
 	defer os.Remove(aciFileName)
 
-	rktCmd := fmt.Sprintf("%s --insecure-skip-verify run --mds-register=false %s", ctx.cmd(), aciFileName)
+	rktCmd := fmt.Sprintf("%s %s %s", ctx.cmd(), ctx.defaultRunCommand(), aciFileName)
 	t.Logf("Command: %v", rktCmd)
 	child, err := gexpect.Spawn(rktCmd)
 	if err != nil {
@@ -99,7 +99,7 @@ func TestAppIsolatorCPU(t *testing.T) {
 	aciFileName := patchTestACI("rkt-inspect-isolators.aci", cpuTest.aciBuildArgs...)
 	defer os.Remove(aciFileName)
 
-	rktCmd := fmt.Sprintf("%s --insecure-skip-verify run --mds-register=false %s", ctx.cmd(), aciFileName)
+	rktCmd := fmt.Sprintf("%s %s %s", ctx.cmd(), ctx.defaultRunCommand(), aciFileName)
 	t.Logf("Command: %v", rktCmd)
 	child, err := gexpect.Spawn(rktCmd)
 	if err != nil {
@@ -125,7 +125,7 @@ func TestCgroups(t *testing.T) {
 	aciFileName := patchTestACI("rkt-inspect-isolators.aci", cgroupsTest.aciBuildArgs...)
 	defer os.Remove(aciFileName)
 
-	rktCmd := fmt.Sprintf("%s --insecure-skip-verify run --mds-register=false %s", ctx.cmd(), aciFileName)
+	rktCmd := fmt.Sprintf("%s %s %s", ctx.cmd(), ctx.defaultRunCommand(), aciFileName)
 	t.Logf("Command: %v", rktCmd)
 	child, err := gexpect.Spawn(rktCmd)
 	if err != nil {

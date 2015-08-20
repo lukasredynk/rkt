@@ -74,8 +74,12 @@ var capsTests = []struct {
 }
 
 func TestCaps(t *testing.T) {
+
 	ctx := newRktRunCtx()
 	defer ctx.cleanup()
+	if ctx.getFlavor() == "kvm" {
+		t.Skip("TODO: pod capabilities isolator not-implemented yet!")
+	}
 
 	for i, tt := range capsTests {
 		stage1Args := []string{"--exec=/inspect --print-caps-pid=1 --print-user"}
@@ -93,7 +97,7 @@ func TestCaps(t *testing.T) {
 		for _, stage := range []int{1, 2} {
 			t.Logf("Running test #%v: %v [stage %v]", i, tt.testName, stage)
 
-			cmd := fmt.Sprintf("%s --debug --insecure-skip-verify run --mds-register=false --set-env=CAPABILITY=%d %s", ctx.cmd(), int(tt.capa), stageFileNames[stage-1])
+			cmd := fmt.Sprintf("%s --debug %s --set-env=CAPABILITY=%d %s", ctx.cmd(), ctx.defaultRunCommand(), int(tt.capa), stageFileNames[stage-1])
 			t.Logf("Command: %v", cmd)
 			child, err := gexpect.Spawn(cmd)
 			if err != nil {
@@ -128,6 +132,9 @@ func TestCaps(t *testing.T) {
 func TestNonRootCaps(t *testing.T) {
 	ctx := newRktRunCtx()
 	defer ctx.cleanup()
+	if ctx.getFlavor() == "kvm" {
+		t.Skip("TODO: non-root pod capabilities isolator not-implemented yet!")
+	}
 
 	for i, tt := range capsTests {
 		args := []string{"--exec=/inspect --print-caps-pid=0 --print-user", "--user=9000", "--group=9000"}
@@ -139,7 +146,7 @@ func TestNonRootCaps(t *testing.T) {
 
 		t.Logf("Running test #%v: %v [non-root]", i, tt.testName)
 
-		cmd := fmt.Sprintf("%s --debug --insecure-skip-verify run --mds-register=false --set-env=CAPABILITY=%d %s", ctx.cmd(), int(tt.capa), fileName)
+		cmd := fmt.Sprintf("%s %s --set-env=CAPABILITY=%d %s", ctx.cmd(), ctx.defaultRunCommand(), int(tt.capa), fileName)
 		t.Logf("Command: %v", cmd)
 		child, err := gexpect.Spawn(cmd)
 		if err != nil {

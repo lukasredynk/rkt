@@ -178,7 +178,7 @@ func serverHandler(t *testing.T, server *taas.Server) {
 func expectedRunRkt(ctx *rktRunCtx, t *testing.T, host, dir, line string) {
 	// First, check that --insecure-skip-verify is required
 	// The server does not provide signatures for now.
-	cmd := fmt.Sprintf(`%s --debug run --mds-register=false %s/%s/prog.aci`, ctx.cmd(), host, dir)
+	cmd := fmt.Sprintf(`%s --debug %s %s/%s/prog.aci`, ctx.cmd(), ctx.defaultRunCommand(), host, dir)
 	t.Logf("Running rkt: %s", cmd)
 	child, err := gexpect.Spawn(cmd)
 	if err != nil {

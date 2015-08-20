@@ -68,7 +68,7 @@ func TestRunPrepareFromFile(t *testing.T) {
 		// 1. Try run/prepare with '--local', should not get the $foundMsg, since we will ignore the '--local' when
 		// the image is a filepath.
 		cmds := []string{
-			fmt.Sprintf("%s --insecure-skip-verify run --mds-register=false --local %s", ctx.cmd(), tt),
+			fmt.Sprintf("%s %s --local %s", ctx.cmd(), ctx.defaultRunCommand(), tt),
 			fmt.Sprintf("%s --insecure-skip-verify prepare --local %s", ctx.cmd(), tt),
 		}
 
@@ -91,7 +91,7 @@ func TestRunPrepareFromFile(t *testing.T) {
 
 		// 2. Try run/prepare without '--local', should not get $foundMsg either.
 		cmds = []string{
-			fmt.Sprintf("%s --insecure-skip-verify run --mds-register=false %s", ctx.cmd(), tt),
+			fmt.Sprintf("%s %s %s", ctx.cmd(), ctx.defaultRunCommand(), tt),
 			fmt.Sprintf("%s --insecure-skip-verify prepare %s", ctx.cmd(), tt),
 		}
 
@@ -127,8 +127,8 @@ func TestImplicitFetch(t *testing.T) {
 
 	// 2. Try run/prepare with/without tag ':latest', should not get $foundMsg.
 	cmds := []string{
-		fmt.Sprintf("%s --insecure-skip-verify run --mds-register=false docker://busybox", ctx.cmd()),
-		fmt.Sprintf("%s --insecure-skip-verify run --mds-register=false docker://busybox:latest", ctx.cmd()),
+		fmt.Sprintf("%s %s docker://busybox", ctx.cmd(), ctx.defaultRunCommand()),
+		fmt.Sprintf("%s %s docker://busybox:latest", ctx.cmd(), ctx.defaultRunCommand()),
 		fmt.Sprintf("%s --insecure-skip-verify prepare docker://busybox", ctx.cmd()),
 		fmt.Sprintf("%s --insecure-skip-verify prepare docker://busybox:latest", ctx.cmd()),
 	}
@@ -144,7 +144,7 @@ func TestImplicitFetch(t *testing.T) {
 			t.Fatalf("%q should not be found", foundMsg)
 		}
 		if err := child.Wait(); err != nil {
-			t.Fatalf("rkt didn't terminate correctly: %v", err)
+			t.Fatalf("rkt didn't terminate correctly: %v for cmd: %q", err, cmd)
 		}
 	}
 }
@@ -158,8 +158,8 @@ func TestRunPrepareLocal(t *testing.T) {
 	defer ctx.cleanup()
 
 	cmds := []string{
-		fmt.Sprintf("%s --insecure-skip-verify run --local --mds-register=false docker://busybox", ctx.cmd()),
-		fmt.Sprintf("%s --insecure-skip-verify run --local --mds-register=false docker://busybox:latest", ctx.cmd()),
+		fmt.Sprintf("%s %s --local docker://busybox", ctx.cmd(), ctx.defaultRunCommand()),
+		fmt.Sprintf("%s %s --local docker://busybox:latest", ctx.cmd(), ctx.defaultRunCommand()),
 		fmt.Sprintf("%s --insecure-skip-verify prepare --local docker://busybox", ctx.cmd()),
 		fmt.Sprintf("%s --insecure-skip-verify prepare --local docker://busybox:latest", ctx.cmd()),
 	}

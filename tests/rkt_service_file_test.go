@@ -52,7 +52,7 @@ func TestServiceFile(t *testing.T) {
 	}
 	opts := "-- --print-msg=HelloWorld --sleep=1000"
 
-	cmd := fmt.Sprintf("%s --insecure-skip-verify run --mds-register=false --set-env=MESSAGE_LOOP=1000 %s %s", ctx.cmd(), image, opts)
+	cmd := fmt.Sprintf("%s %s --set-env=MESSAGE_LOOP=1000 %s %s", ctx.cmd(), ctx.defaultRunCommand(), image, opts)
 	props := []sd_dbus.Property{
 		sd_dbus.PropExecStart(strings.Split(cmd, " "), false),
 	}

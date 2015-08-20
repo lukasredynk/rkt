@@ -164,6 +164,29 @@ func (ctx *rktRunCtx) cmd() string {
 	)
 }
 
+// runSubCommand return a "run" command with some default options
+// note: default options are changed depending on flavor used to build
+func (ctx *rktRunCtx) defaultRunCommand() string {
+	runCmd := "--insecure-skip-verify run --mds-register=false"
+
+	// kvm flavor doesn't support host networking mode (default)
+	// so for all tests, by default weu use --private-net
+	if ctx.getFlavor() == "kvm" {
+		runCmd += " --private-net"
+	}
+	return runCmd
+}
+
+// getFlavor returns a flavor read RKT_STAGE1_USR_FROM envrion variable
+func (ctx *rktRunCtx) getFlavor() string {
+	flavor := os.Getenv("RKT_STAGE1_USR_FROM")
+	if flavor == "" {
+		panic("Cannot determine build flavor: RKT_STAGE1_USR_FROM env var is not specified")
+	}
+	return flavor
+
+}
+
 func (ctx *rktRunCtx) rktBin() string {
 	rkt := os.Getenv("RKT")
 	if rkt == "" {

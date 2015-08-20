@@ -521,7 +521,7 @@ func TestPodManifest(t *testing.T) {
 		defer os.Remove(manifestFile)
 
 		// 1. Test 'rkt run'.
-		runCmd := fmt.Sprintf("%s run --mds-register=false --pod-manifest=%s", ctx.cmd(), manifestFile)
+		runCmd := fmt.Sprintf("%s %s --pod-manifest=%s", ctx.cmd(), ctx.defaultRunCommand(), manifestFile)
 		t.Logf("Running 'run' test #%v: %v", i, runCmd)
 		child, err := gexpect.Spawn(runCmd)
 		if err != nil {

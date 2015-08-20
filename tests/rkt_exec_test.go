@@ -39,6 +39,9 @@ func TestRunOverrideExec(t *testing.T) {
 	defer os.Remove(execImage)
 	ctx := newRktRunCtx()
 	defer ctx.cleanup()
+	if ctx.getFlavor() == "kvm" {
+		t.Skip("TODO: exec not-implemented yet!")
+	}
 
 	for _, tt := range []struct {
 		rktCmd       string
@@ -46,12 +49,12 @@ func TestRunOverrideExec(t *testing.T) {
 	}{
 		{
 			// Sanity check - make sure no --exec override prints the expected exec invocation
-			rktCmd:       fmt.Sprintf("%s --insecure-skip-verify run --mds-register=false %s -- --print-exec", ctx.cmd(), execImage),
+			rktCmd:       fmt.Sprintf("%s %s %s -- --print-exec", ctx.cmd(), ctx.defaultRunCommand(), execImage),
 			expectedLine: "inspect execed as: /inspect",
 		},
 		{
 			// Now test overriding the entrypoint (which is a symlink to /inspect so should behave identically)
-			rktCmd:       fmt.Sprintf("%s --insecure-skip-verify run --mds-register=false %s --exec /inspect-link -- --print-exec", ctx.cmd(), execImage),
+			rktCmd:       fmt.Sprintf("%s %s %s --exec /inspect-link -- --print-exec", ctx.cmd(), ctx.defaultRunCommand(), execImage),
 			expectedLine: "inspect execed as: /inspect-link",
 		},
 		{

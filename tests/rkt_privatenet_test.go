@@ -41,7 +41,7 @@ func TestPrivateNetOmittedNetNS(t *testing.T) {
 	defer ctx.cleanup()
 	defer ctx.reset()
 
-	cmd := fmt.Sprintf("%s --debug --insecure-skip-verify run --mds-register=false %s", ctx.cmd(), testImage)
+	cmd := fmt.Sprintf("%s --debug %s %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
 	t.Logf("Command: %v\n", cmd)
 	child, err := gexpect.Spawn(cmd)
 	if err != nil {
@@ -92,7 +92,7 @@ func TestPrivateNetOmittedConnectivity(t *testing.T) {
 	defer ctx.cleanup()
 	defer ctx.reset()
 
-	cmd := fmt.Sprintf("%s --debug --insecure-skip-verify run --mds-register=false %s", ctx.cmd(), testImage)
+	cmd := fmt.Sprintf("%s --debug %s %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
 	t.Logf("Command: %v\n", cmd)
 	child, err := gexpect.Spawn(cmd)
 	if err != nil {
@@ -146,7 +146,7 @@ func TestPrivateNetDefaultNetNS(t *testing.T) {
 	defer ctx.cleanup()
 	defer ctx.reset()
 
-	cmd := fmt.Sprintf("%s --debug --insecure-skip-verify run --private-net=default --mds-register=false %s", ctx.cmd(), testImage)
+	cmd := fmt.Sprintf("%s --debug %s --private-net=default  %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
 	t.Logf("Command: %v\n", cmd)
 	child, err := gexpect.Spawn(cmd)
 	if err != nil {
@@ -226,7 +226,7 @@ func TestPrivateNetDefaultConnectivity(t *testing.T) {
 	hostname, err := os.Hostname()
 	go func() {
 		defer ga.Done()
-		cmd := fmt.Sprintf("%s --debug --insecure-skip-verify run --private-net=default --mds-register=false %s", ctx.cmd(), testImage)
+		cmd := fmt.Sprintf("%s --debug %s --private-net=default %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
 		t.Logf("Command: %v\n", cmd)
 		child, err := gexpect.Spawn(cmd)
 		if err != nil {
@@ -277,7 +277,7 @@ func TestPrivateNetDefaultRestrictedConnectivity(t *testing.T) {
 	defer ctx.cleanup()
 	defer ctx.reset()
 
-	cmd := fmt.Sprintf("%s --debug --insecure-skip-verify run --private-net=default-restricted --mds-register=false %s", ctx.cmd(), testImage)
+	cmd := fmt.Sprintf("%s --debug %s --private-net=default-restricted  %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
 	t.Logf("Command: %v\n", cmd)
 	child, err := gexpect.Spawn(cmd)
 	if err != nil {
@@ -429,7 +429,7 @@ func testPrivateNetCustomDual(t *testing.T, nt networkTemplateT) {
 		testImage := patchTestACI("rkt-inspect-networking1.aci", testImageArgs...)
 		defer os.Remove(testImage)
 
-		cmd := fmt.Sprintf("%s --debug --insecure-skip-verify run --private-net=%v --mds-register=false %s", ctx.cmd(), nt.Name, testImage)
+		cmd := fmt.Sprintf("%s --debug %s --private-net=%v %s", ctx.cmd(), ctx.defaultRunCommand(), nt.Name, testImage)
 		fmt.Printf("Command: %v\n", cmd)
 		child, err := gexpect.Spawn(cmd)
 		if err != nil {
@@ -469,7 +469,7 @@ func testPrivateNetCustomDual(t *testing.T, nt networkTemplateT) {
 		testImage := patchTestACI("rkt-inspect-networking2.aci", testImageArgs...)
 		defer os.Remove(testImage)
 
-		cmd := fmt.Sprintf("%s --debug --insecure-skip-verify run --private-net=%v --mds-register=false %s", ctx.cmd(), nt.Name, testImage)
+		cmd := fmt.Sprintf("%s --debug %s --private-net=%v %s", ctx.cmd(), ctx.defaultRunCommand(), nt.Name, testImage)
 		fmt.Printf("Command: %v\n", cmd)
 		child, err := gexpect.Spawn(cmd)
 		if err != nil {
@@ -553,7 +553,7 @@ func testPrivateNetCustomNatConnectivity(t *testing.T, nt networkTemplateT) {
 		testImage := patchTestACI("rkt-inspect-networking.aci", testImageArgs...)
 		defer os.Remove(testImage)
 
-		cmd := fmt.Sprintf("%s --debug --insecure-skip-verify run --private-net=%v --mds-register=false %s", ctx.cmd(), nt.Name, testImage)
+		cmd := fmt.Sprintf("%s --debug %s --private-net=%v %s", ctx.cmd(), ctx.defaultRunCommand(), nt.Name, testImage)
 		t.Logf("Command: %v\n", cmd)
 		child, err := gexpect.Spawn(cmd)
 		if err != nil {
