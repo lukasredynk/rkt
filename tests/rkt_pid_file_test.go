@@ -135,8 +135,8 @@ func TestPidFileAbortedStart(t *testing.T) {
 	)
 
 	if ctx.getFlavor() == "kvm" {
-		// lkvm: ^A^X
-		terminateSequence = "\001\030"
+		// lkvm: ^Ax
+		terminateSequence = "\001x"
 		expectationFailed = func(err error) bool {
 			return err != nil
 		}
