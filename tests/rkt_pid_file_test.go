@@ -151,6 +151,7 @@ func TestPidFileAbortedStart(t *testing.T) {
 	if err := runChild.SendLine(terminateSequence); err != nil {
 		t.Fatalf("Failed to terminate the pod: %v", err)
 	}
+	println("runChild wait....")
 	err := runChild.Wait()
 	if expectationFailed(err) {
 		t.Fatalf("rkt didn't terminate as expected: %v", err)
@@ -160,8 +161,12 @@ func TestPidFileAbortedStart(t *testing.T) {
 	before := time.Now()
 	// if err := enterChild.Wait(); expectationFailed(err) { // TODO: enter is not implemented yet, and returns original 1 exit code
 	// enter should end up with err and exit status equals to 1 (for any flavor)
+	println("enterChild wait....")
 	if err := enterChild.Wait(); err == nil || err.Error() != "exit status 1" {
 		t.Fatalf("rkt enter didn't terminate as expected: %v", err)
+	} else {
+		// println("enter err:", err)
+		fmt.Printf("enter err = %#v\n", err.Error())
 	}
 	delay := time.Now().Sub(before)
 	t.Logf("rkt enter terminated %v after the pod was terminated", delay)
