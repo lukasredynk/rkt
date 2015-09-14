@@ -16,12 +16,22 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/coreos/rkt/Godeps/_workspace/src/github.com/steveeJ/gexpect"
 	"github.com/coreos/rkt/Godeps/_workspace/src/github.com/syndtr/gocapability/capability"
 )
+
+var chrootTest = struct {
+	testName     string
+	aciBuildArgs []string
+}{
+	`Check break chroot`,
+	[]string{"--exec=/inspect --print-if-unsecure"},
+}
 
 var capsTests = []struct {
 	testName            string
@@ -71,6 +81,47 @@ var capsTests = []struct {
 		capInStage2Expected: false,
 		nonrootCapExpected:  false,
 	},
+}
+
+func TestBreakChroot(t *testing.T) {
+	//Create fake_cgroup
+	_, err := exec.Command("cgcreate", "-g", "cpu:/fake_cg").Output()
+	if err != nil {
+		t.Fatalf("Cannot create a test cgroup. Error msg: %s", err)
+	}
+	defer exec.Command("cgdelete", "-g", "cpu:/fake_cg").Output()
+
+	ctx := newRktRunCtx()
+	defer ctx.cleanup()
+
+	t.Logf("Running test: %v", chrootTest.testName)
+	aciFileName := patchTestACI("rkt-inspect-isolators.aci", chrootTest.aciBuildArgs...)
+	defer os.Remove(aciFileName)
+
+	rktCmd := fmt.Sprintf("%s --insecure-skip-verify run --mds-register=false %s --private-net", ctx.cmd(), aciFileName)
+	t.Logf("Command: %v", rktCmd)
+	child, err := gexpect.Spawn(rktCmd)
+	if err != nil {
+		t.Fatalf("Cannot exec rkt: %v", err)
+	}
+	err = child.Wait()
+
+	shares, err := ioutil.ReadFile("/sys/fs/cgroup/cpu/fake_cg/cpu.shares")
+	if err != nil {
+		t.Fatalf("Cannot read cgroup!")
+	}
+	//Remove byte of new line.
+	shares = shares[:len(shares)-1]
+
+	if err != nil {
+		t.Fatalf("rkt didn't terminate correctly: %v", err)
+	} else {
+		if string(shares) != "1024" {
+			t.Fatalf("Guest has changed host cgroup value!\nNew value: %s.", shares)
+		}
+	}
+	ctx.reset()
+
 }
 
 func TestCaps(t *testing.T) {

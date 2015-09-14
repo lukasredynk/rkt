@@ -63,6 +63,7 @@ var (
 		GetHttp           string
 		ServeHttp         string
 		ServeHttpTimeout  int
+		PrintIfUnsecure   bool
 	}{}
 )
 
@@ -95,6 +96,7 @@ func init() {
 	globalFlagset.StringVar(&globalFlags.GetHttp, "get-http", "", "HTTP-Get from the given address")
 	globalFlagset.StringVar(&globalFlags.ServeHttp, "serve-http", "", "Serve the hostname via HTTP on the given address:port")
 	globalFlagset.IntVar(&globalFlags.ServeHttpTimeout, "serve-http-timeout", 30, "HTTP Timeout to wait for a client connection")
+	globalFlagset.BoolVar(&globalFlags.PrintIfUnsecure, "print-if-unsecure", false, "Print if cgroups are changeable")
 }
 
 func main() {
@@ -377,6 +379,43 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("HTTP-Get received: %s\n", body)
+	}
+
+	if globalFlags.PrintIfUnsecure {
+		//cpu subsystem mount point
+		cpu_mp := "sys/fs/cgroup/cpu"
+
+		//Make tmp dit
+		_ = os.Mkdir("/jail", 0777)
+		//Break jail
+		_ = os.Chdir("/")
+		//JAILROOT
+		dir_wd, _ := syscall.Open("/", 0x0, 0x0)
+		_ = syscall.Chroot("/jail")
+		//open dir_wd
+		syscall.Fchdir(dir_wd)
+		syscall.Close(dir_wd)
+
+		//Break out from jail
+		_ = os.Chdir("../../../..")
+
+		//Remount cpu subsystem with following flags:
+		//remount,bind,rw - rw is setting as a default flag
+		flags := uintptr(syscall.MS_BIND | syscall.MS_REMOUNT)
+		err := syscall.Mount(cpu_mp, cpu_mp, "", flags, "")
+		if err != nil {
+			fmt.Fprint(os.Stderr, err)
+		}
+		//Open and write a new value to our fake_cg
+		file, err := os.OpenFile(cpu_mp+"/fake_cg/cpu.shares", os.O_WRONLY, 0644)
+		if err != nil {
+			fmt.Fprint(os.Stderr, err)
+		}
+		_, err = file.WriteString("404")
+		if err != nil {
+			fmt.Fprint(os.Stderr, err)
+		}
+		file.Close()
 	}
 
 	os.Exit(globalFlags.ExitCode)
