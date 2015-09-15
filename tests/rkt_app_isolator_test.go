@@ -16,9 +16,11 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/coreos/rkt/Godeps/_workspace/src/github.com/steveeJ/gexpect"
 	"github.com/coreos/rkt/common/cgroup"
@@ -62,6 +64,7 @@ func TestAppIsolatorMemory(t *testing.T) {
 
 	ctx := newRktRunCtx()
 	defer ctx.cleanup()
+	log.Println("ctx")
 
 	t.Logf("Running test: %v", memoryTest.testName)
 
@@ -70,6 +73,7 @@ func TestAppIsolatorMemory(t *testing.T) {
 
 	rktCmd := fmt.Sprintf("%s %s %s", ctx.cmd(), ctx.defaultRunCommand(), aciFileName)
 	t.Logf("Command: %v", rktCmd)
+	log.Println("cmd")
 	child, err := gexpect.Spawn(rktCmd)
 	if err != nil {
 		t.Fatalf("Cannot exec rkt: %v", err)
@@ -79,6 +83,7 @@ func TestAppIsolatorMemory(t *testing.T) {
 		t.Fatalf("Didn't receive expected output %q: %v", expectedLine, err)
 	}
 
+	log.Println("wait")
 	err = child.Wait()
 	if err != nil {
 		t.Fatalf("rkt didn't terminate correctly: %v", err)
@@ -86,6 +91,7 @@ func TestAppIsolatorMemory(t *testing.T) {
 }
 
 func TestAppIsolatorCPU(t *testing.T) {
+	log.Println("start")
 	ok := cgroup.IsIsolatorSupported("cpu")
 	if !ok {
 		t.Skip("CPU isolator not supported.")
@@ -93,6 +99,7 @@ func TestAppIsolatorCPU(t *testing.T) {
 
 	ctx := newRktRunCtx()
 	defer ctx.cleanup()
+	log.Println("ctx")
 
 	t.Logf("Running test: %v", cpuTest.testName)
 
@@ -101,15 +108,18 @@ func TestAppIsolatorCPU(t *testing.T) {
 
 	rktCmd := fmt.Sprintf("%s %s %s", ctx.cmd(), ctx.defaultRunCommand(), aciFileName)
 	t.Logf("Command: %v", rktCmd)
+	log.Println("cmd")
 	child, err := gexpect.Spawn(rktCmd)
 	if err != nil {
 		t.Fatalf("Cannot exec rkt: %v", err)
 	}
 	expectedLine := "CPU Quota: " + strconv.Itoa(CPUQuota)
-	if err := expectWithOutput(child, expectedLine); err != nil {
+	log.Println("expect")
+	if err := expectTimeoutWithOutput(child, expectedLine, 30*time.Second); err != nil {
 		t.Fatalf("Didn't receive expected output %q: %v", expectedLine, err)
 	}
 
+	log.Println("wait")
 	err = child.Wait()
 	if err != nil {
 		t.Fatalf("rkt didn't terminate correctly: %v", err)
