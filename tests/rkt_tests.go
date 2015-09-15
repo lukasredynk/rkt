@@ -55,10 +55,12 @@ func newDirDesc(prefix, desc, option string) *dirDesc {
 // reset removes the managed directory and recreates it
 func (d *dirDesc) reset() {
 	d.cleanup()
-	dir, err := ioutil.TempDir("", d.prefix)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create temporary %s directory: %v", d.desc, err))
-	}
+	// override data folder
+	// dir, err := ioutil.TempDir("", d.prefix)
+	// if err != nil {
+	// 	panic(fmt.Sprintf("Failed to create temporary %s directory: %v", d.desc, err))
+	// }
+	dir := "/var/lib/rkt"
 	d.dir = dir
 }
 
