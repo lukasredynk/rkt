@@ -30,8 +30,6 @@ func preparePidFileRace(t *testing.T, ctx *rktRunCtx, sleepImage string) (*gexpe
 	// Start the pod
 	runCmd := fmt.Sprintf("%s %s --mds-register=false --interactive %s", ctx.cmd(), ctx.defaultRunCommand(), sleepImage)
 	t.Logf("%s", runCmd)
-	println("run:", runCmd)
-
 	runChild, err := gexpect.Spawn(runCmd)
 	if err != nil {
 		t.Fatalf("Cannot exec rkt")
@@ -42,7 +40,6 @@ func preparePidFileRace(t *testing.T, ctx *rktRunCtx, sleepImage string) (*gexpe
 		t.Fatalf("Waited for the prompt but not found: %v", err)
 	}
 
-	println("check the ppid")
 	// Check the ppid file is really created
 	cmd := fmt.Sprintf(`%s list --full|grep running`, ctx.cmd())
 	output, err := exec.Command("/bin/sh", "-c", cmd).CombinedOutput()
@@ -51,7 +48,6 @@ func preparePidFileRace(t *testing.T, ctx *rktRunCtx, sleepImage string) (*gexpe
 	}
 	UUID := strings.Split(string(output), "\t")[0]
 
-	println("stat")
 	pidFileName := filepath.Join(ctx.dataDir(), "pods/run", UUID, "ppid")
 	if _, err := os.Stat(pidFileName); err != nil {
 		t.Fatalf("Pid file missing: %v", err)
@@ -62,19 +58,16 @@ func preparePidFileRace(t *testing.T, ctx *rktRunCtx, sleepImage string) (*gexpe
 	if err := os.Rename(pidFileName, pidFileNameBackup); err != nil {
 		t.Fatalf("Cannot move ppid file away: %v", err)
 	}
-	println("temp move ppid file away", pidFileNameBackup)
 
 	// Start the "enter" command without the pidfile
 	enterCmd := fmt.Sprintf("%s --debug enter %s /inspect --print-msg=RktEnterWorksFine", ctx.cmd(), UUID)
 	t.Logf("%s", enterCmd)
-	println("enter:", enterCmd)
 	enterChild, err := gexpect.Spawn(enterCmd)
 	if err != nil {
 		t.Fatalf("Cannot exec rkt enter")
 	}
 	// Enter should be able to wait until the ppid file appears
 	time.Sleep(1 * time.Second)
-	println("after sleep ...")
 
 	return runChild, enterChild, pidFileName, pidFileNameBackup
 }
@@ -86,10 +79,6 @@ func TestPidFileDelayedStart(t *testing.T) {
 
 	ctx := newRktRunCtx()
 	defer ctx.cleanup()
-
-	if ctx.getFlavor() == "kvm" {
-		t.Skipf("TODO: entering not supported yet!")
-	}
 
 	runChild, enterChild, pidFileName, pidFileNameBackup := preparePidFileRace(t, ctx, sleepImage)
 
@@ -151,7 +140,6 @@ func TestPidFileAbortedStart(t *testing.T) {
 	if err := runChild.SendLine(terminateSequence); err != nil {
 		t.Fatalf("Failed to terminate the pod: %v", err)
 	}
-	println("runChild wait....")
 	err := runChild.Wait()
 	if expectationFailed(err) {
 		t.Fatalf("rkt didn't terminate as expected: %v", err)
@@ -161,11 +149,9 @@ func TestPidFileAbortedStart(t *testing.T) {
 	before := time.Now()
 	// if err := enterChild.Wait(); expectationFailed(err) { // TODO: enter is not implemented yet, and returns original 1 exit code
 	// enter should end up with err and exit status equals to 1 (for any flavor)
-	println("enterChild wait....")
 	if err := enterChild.Wait(); err == nil || err.Error() != "exit status 1" {
 		t.Fatalf("rkt enter didn't terminate as expected: %v", err)
 	} else {
-		// println("enter err:", err)
 		fmt.Printf("enter err = %#v\n", err.Error())
 	}
 	delay := time.Now().Sub(before)

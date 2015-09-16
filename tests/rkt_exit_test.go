@@ -23,12 +23,16 @@ import (
 )
 
 func TestExitCode(t *testing.T) {
+
 	for i := 0; i < 3; i++ {
 		t.Logf("%d\n", i)
 		imageFile := patchTestACI("rkt-inspect-exit.aci", fmt.Sprintf("--exec=/inspect --print-msg=Hello --exit-code=%d", i))
 		defer os.Remove(imageFile)
 		ctx := newRktRunCtx()
 		defer ctx.cleanup()
+		if ctx.getFlavor() == "kvm" {
+			t.Skip("TODO: exit code from app not supported in kvm!!!")
+		}
 
 		cmd := fmt.Sprintf(`/bin/sh -c "`+
 			`%s --debug %s %s ;`+
