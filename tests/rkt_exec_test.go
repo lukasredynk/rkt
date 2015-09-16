@@ -39,9 +39,6 @@ func TestRunOverrideExec(t *testing.T) {
 	defer os.Remove(execImage)
 	ctx := newRktRunCtx()
 	defer ctx.cleanup()
-	if ctx.getFlavor() == "kvm" {
-		t.Skip("TODO: exec not-implemented yet!")
-	}
 
 	for _, tt := range []struct {
 		rktCmd       string

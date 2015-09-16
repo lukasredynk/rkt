@@ -18,6 +18,7 @@ import (
 	"log"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/coreos/rkt/Godeps/_workspace/src/github.com/steveeJ/gexpect"
 )
@@ -34,36 +35,36 @@ var envTests = []struct {
 		`^RKT_BIN^  ^RUN_CMD^ --interactive ^SLEEP^`,
 		`/bin/sh -c "^RKT_BIN^  enter $(^RKT_BIN^ list --full|grep running|awk '{print $1}') /inspect --print-env=VAR_FROM_MANIFEST"`,
 	},
-	// {
-	// 	`^RKT_BIN^ --debug ^RUN_CMD^ --set-env=VAR_OTHER=setenv ^PRINT_VAR_OTHER^`,
-	// 	"VAR_OTHER=setenv",
-	// 	`^RKT_BIN^ --debug ^RUN_CMD^ --interactive --set-env=VAR_OTHER=setenv ^SLEEP^`,
-	// 	`/bin/sh -c "^RKT_BIN^ --debug enter $(^RKT_BIN^ list --full|grep running|awk '{print $1}') /inspect --print-env=VAR_OTHER"`,
-	// },
-	// {
-	// 	`^RKT_BIN^ --debug ^RUN_CMD^ --set-env=VAR_FROM_MANIFEST=setenv ^PRINT_VAR_FROM_MANIFEST^`,
-	// 	"VAR_FROM_MANIFEST=setenv",
-	// 	`^RKT_BIN^ --debug ^RUN_CMD^ --interactive --set-env=VAR_FROM_MANIFEST=setenv ^SLEEP^`,
-	// 	`/bin/sh -c "^RKT_BIN^ --debug enter $(^RKT_BIN^ list --full|grep running|awk '{print $1}') /inspect --print-env=VAR_FROM_MANIFEST"`,
-	// },
-	// {
-	// 	`/bin/sh -c "export VAR_OTHER=host ; ^RKT_BIN^ --debug ^RUN_CMD^ --inherit-env=true ^PRINT_VAR_OTHER^"`,
-	// 	"VAR_OTHER=host",
-	// 	`/bin/sh -c "export VAR_OTHER=host ; ^RKT_BIN^ --debug ^RUN_CMD^ --interactive --inherit-env=true ^SLEEP^"`,
-	// 	`/bin/sh -c "export VAR_OTHER=host ; ^RKT_BIN^ --debug enter $(^RKT_BIN^ list --full|grep running|awk '{print $1}') /inspect --print-env=VAR_OTHER"`,
-	// },
-	// {
-	// 	`/bin/sh -c "export VAR_FROM_MANIFEST=host ; ^RKT_BIN^ --debug ^RUN_CMD^ --inherit-env=true ^PRINT_VAR_FROM_MANIFEST^"`,
-	// 	"VAR_FROM_MANIFEST=manifest",
-	// 	`/bin/sh -c "export VAR_FROM_MANIFEST=host ; ^RKT_BIN^ --debug ^RUN_CMD^ --interactive --inherit-env=true ^SLEEP^"`,
-	// 	`/bin/sh -c "export VAR_FROM_MANIFEST=host ; ^RKT_BIN^ --debug enter $(^RKT_BIN^ list --full|grep running|awk '{print $1}') /inspect --print-env=VAR_FROM_MANIFEST"`,
-	// },
-	// {
-	// 	`/bin/sh -c "export VAR_OTHER=host ; ^RKT_BIN^ --debug ^RUN_CMD^ --inherit-env=true --set-env=VAR_OTHER=setenv ^PRINT_VAR_OTHER^"`,
-	// 	"VAR_OTHER=setenv",
-	// 	`/bin/sh -c "export VAR_OTHER=host ; ^RKT_BIN^ --debug ^RUN_CMD^ --interactive --inherit-env=true --set-env=VAR_OTHER=setenv ^SLEEP^"`,
-	// 	`/bin/sh -c "export VAR_OTHER=host ; ^RKT_BIN^ --debug enter $(^RKT_BIN^ list --full|grep running|awk '{print $1}') /inspect --print-env=VAR_OTHER"`,
-	// },
+	{
+		`^RKT_BIN^ --debug ^RUN_CMD^ --set-env=VAR_OTHER=setenv ^PRINT_VAR_OTHER^`,
+		"VAR_OTHER=setenv",
+		`^RKT_BIN^ --debug ^RUN_CMD^ --interactive --set-env=VAR_OTHER=setenv ^SLEEP^`,
+		`/bin/sh -c "^RKT_BIN^ --debug enter $(^RKT_BIN^ list --full|grep running|awk '{print $1}') /inspect --print-env=VAR_OTHER"`,
+	},
+	{
+		`^RKT_BIN^ --debug ^RUN_CMD^ --set-env=VAR_FROM_MANIFEST=setenv ^PRINT_VAR_FROM_MANIFEST^`,
+		"VAR_FROM_MANIFEST=setenv",
+		`^RKT_BIN^ --debug ^RUN_CMD^ --interactive --set-env=VAR_FROM_MANIFEST=setenv ^SLEEP^`,
+		`/bin/sh -c "^RKT_BIN^ --debug enter $(^RKT_BIN^ list --full|grep running|awk '{print $1}') /inspect --print-env=VAR_FROM_MANIFEST"`,
+	},
+	{
+		`/bin/sh -c "export VAR_OTHER=host ; ^RKT_BIN^ --debug ^RUN_CMD^ --inherit-env=true ^PRINT_VAR_OTHER^"`,
+		"VAR_OTHER=host",
+		`/bin/sh -c "export VAR_OTHER=host ; ^RKT_BIN^ --debug ^RUN_CMD^ --interactive --inherit-env=true ^SLEEP^"`,
+		`/bin/sh -c "export VAR_OTHER=host ; ^RKT_BIN^ --debug enter $(^RKT_BIN^ list --full|grep running|awk '{print $1}') /inspect --print-env=VAR_OTHER"`,
+	},
+	{
+		`/bin/sh -c "export VAR_FROM_MANIFEST=host ; ^RKT_BIN^ --debug ^RUN_CMD^ --inherit-env=true ^PRINT_VAR_FROM_MANIFEST^"`,
+		"VAR_FROM_MANIFEST=manifest",
+		`/bin/sh -c "export VAR_FROM_MANIFEST=host ; ^RKT_BIN^ --debug ^RUN_CMD^ --interactive --inherit-env=true ^SLEEP^"`,
+		`/bin/sh -c "export VAR_FROM_MANIFEST=host ; ^RKT_BIN^ --debug enter $(^RKT_BIN^ list --full|grep running|awk '{print $1}') /inspect --print-env=VAR_FROM_MANIFEST"`,
+	},
+	{
+		`/bin/sh -c "export VAR_OTHER=host ; ^RKT_BIN^ --debug ^RUN_CMD^ --inherit-env=true --set-env=VAR_OTHER=setenv ^PRINT_VAR_OTHER^"`,
+		"VAR_OTHER=setenv",
+		`/bin/sh -c "export VAR_OTHER=host ; ^RKT_BIN^ --debug ^RUN_CMD^ --interactive --inherit-env=true --set-env=VAR_OTHER=setenv ^SLEEP^"`,
+		`/bin/sh -c "export VAR_OTHER=host ; ^RKT_BIN^ --debug enter $(^RKT_BIN^ list --full|grep running|awk '{print $1}') /inspect --print-env=VAR_OTHER"`,
+	},
 }
 
 func TestEnv(t *testing.T) {
@@ -87,27 +88,27 @@ func TestEnv(t *testing.T) {
 	}
 	for i, tt := range envTests {
 		// 'run' tests
-		// runCmd := replacePlaceholders(tt.runCmd)
-		// log.Printf("Running 'run' test #%v: %v\n\n", i, runCmd)
-		// child, err := gexpect.Spawn(runCmd)
-		// if err != nil {
-		// 	t.Fatalf("Cannot exec rkt #%v: %v", i, err)
-		// }
-		//
-		// err = expectWithOutput(child, tt.runExpect)
-		// if err != nil {
-		// 	t.Fatalf("Expected %q but not found: %v", tt.runExpect, err)
-		// }
-		//
-		// err = child.Wait()
-		// if err != nil {
-		// 	t.Fatalf("rkt didn't terminate correctly: %v", err)
-		// }
-		//
+		runCmd := replacePlaceholders(tt.runCmd)
+		log.Printf("Running 'run' test #%v: %v\n\n", i, runCmd)
+		child, err := gexpect.Spawn(runCmd)
+		if err != nil {
+			t.Fatalf("Cannot exec rkt #%v: %v", i, err)
+		}
+
+		err = expectWithOutput(child, tt.runExpect)
+		if err != nil {
+			t.Fatalf("Expected %q but not found: %v", tt.runExpect, err)
+		}
+
+		err = child.Wait()
+		if err != nil {
+			t.Fatalf("rkt didn't terminate correctly: %v", err)
+		}
+
 		// 'enter' tests
 		sleepCmd := replacePlaceholders(tt.sleepCmd)
 		log.Printf("Running 'enter' test #%v: sleep: %v\n\n", i, sleepCmd)
-		child, err := gexpect.Spawn(sleepCmd)
+		child, err = gexpect.Spawn(sleepCmd)
 		if err != nil {
 			t.Fatalf("Cannot exec rkt #%v: %v", i, err)
 		}
@@ -116,6 +117,8 @@ func TestEnv(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Waited for the prompt but not found #%v: %v", i, err)
 		}
+		// sshd needs a time to boot up!
+		time.Sleep(1 * time.Second)
 
 		enterCmd := replacePlaceholders(tt.enterCmd)
 		log.Printf("Running 'enter' test #%v: enter: %v\n\n", i, enterCmd)
