@@ -205,8 +205,11 @@ func (p *Pod) appToSystemd(ra *schema.RuntimeApp, interactive bool, flavor strin
 			return fmt.Errorf("non-numerical group id not supported yet")
 		}
 	}
-
-	execWrap := []string{"/diagexec", common.RelAppRootfsPath(appName), workDir, RelEnvFilePath(appName), strconv.Itoa(uid), strconv.Itoa(gid)}
+	var caps int64
+	if flavor == "kvm" {
+		caps = kvm.FindCapabilities(app.Isolators)
+	}
+	execWrap := []string{"/diagexec", common.RelAppRootfsPath(appName), workDir, RelEnvFilePath(appName), strconv.Itoa(uid), strconv.Itoa(gid), flavor, strconv.FormatInt(caps, 10)}
 	execStart := quoteExec(append(execWrap, app.Exec...))
 	opts := []*unit.UnitOption{
 		unit.NewUnitOption("Unit", "Description", fmt.Sprintf("Application=%v Image=%v", appName, imgName)),

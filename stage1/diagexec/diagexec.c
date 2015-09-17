@@ -25,6 +25,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/capability.h>
+#include <sys/prctl.h>
 
 #include "elf.h"
 
@@ -210,6 +212,69 @@ static void load_env(const char *env, const char **keep_env)
 	}
 }
 
+void set_capabilities (long flag)
+{
+	//List of all capabilities
+	cap_value_t cap_list[]={
+		CAP_CHOWN,
+		CAP_DAC_OVERRIDE,
+		CAP_DAC_READ_SEARCH,
+		CAP_FOWNER,
+		CAP_FSETID,
+		CAP_KILL,
+		CAP_SETGID,
+		CAP_SETUID,
+		CAP_SETPCAP,
+		CAP_LINUX_IMMUTABLE,
+		CAP_NET_BIND_SERVICE,
+		CAP_NET_BROADCAST,
+		CAP_NET_ADMIN,
+		CAP_NET_RAW,
+		CAP_IPC_LOCK,
+		CAP_IPC_OWNER,
+		CAP_SYS_MODULE,
+		CAP_SYS_RAWIO,
+		CAP_SYS_CHROOT,
+		CAP_SYS_PTRACE,
+		CAP_SYS_PACCT,
+		CAP_SYS_ADMIN,
+		CAP_SYS_BOOT,
+		CAP_SYS_NICE,
+		CAP_SYS_RESOURCE,
+		CAP_SYS_TIME,
+		CAP_SYS_TTY_CONFIG,
+		CAP_MKNOD,
+		CAP_LEASE,
+		CAP_AUDIT_WRITE,
+		CAP_AUDIT_CONTROL,
+		CAP_SETFCAP,
+		CAP_MAC_OVERRIDE,
+		CAP_MAC_ADMIN,
+		CAP_SYSLOG
+	};
+	// counters for loop and detected capabilities
+	int counter, i = 0;
+	// the list of detected capabilities
+	cap_value_t required_cap[35];
+	//encode capabilities
+	while (flag > 0)
+	{
+		printf("Flag: %ld\nn", flag);
+		if (flag % 2)
+			required_cap[i++] = cap_list[counter];
+		flag = flag >> 1;
+		counter++;
+	}
+		cap_t cap;
+		cap = cap_get_proc();
+        cap_clear_flag(cap, CAP_INHERITABLE);
+        cap_clear_flag(cap, CAP_EFFECTIVE);
+        cap_clear_flag(cap, CAP_PERMITTED);
+		// TODO(DTadrzak): Add error handling
+		cap_set_flag(cap, CAP_PERMITTED, i, required_cap, CAP_SET);
+		cap_set_proc(cap);
+}
+
 int main(int argc, char *argv[])
 {
 	/* We need to keep these env variables since systemd uses them for socket
@@ -220,22 +285,22 @@ int main(int argc, char *argv[])
 		"LISTEN_PID",
 		NULL
 	};
-
-	const char *root, *cwd, *env, *uid_str, *gid_str, *exe;
+	const char *root, *cwd, *env, *uid_str, *gid_str, *exe, *flavor, *cap_flag;
 	char **args;
 	uid_t uid;
 	gid_t gid;
-	exit_if(argc < 7,
-		"Usage: %s /path/to/root /work/directory /env/file uid gid /to/exec [args ...]", argv[0]);
-
+	exit_if(argc < 9,
+                "Usage: %s /path/to/root /work/directory /env/file uid gid /to/exec flavor cap_flag [args ...]", argv[0]);
 	root = argv[1];
-	cwd = argv[2];
+    cwd = argv[2];
 	env = argv[3];
 	uid_str = argv[4];
 	uid = atoi(uid_str);
 	gid_str = argv[5];
 	gid = atoi(gid_str);
-	args = &argv[6];
+	flavor = argv[6];
+	cap_flag = argv[7];
+	args = &argv[8];
 	exe = args[0];
 
 	load_env(env, keep_env);
@@ -251,6 +316,15 @@ int main(int argc, char *argv[])
 	 * manually then let it potentially affect execvp().  execvpe() simply
 	 * passes the environment to execve() _after_ performing the search, not
 	 * what we want here. */
+
+	cap_t cap;
+	cap = cap_get_proc();
+	printf("Capabilities: %s\n\n", cap_to_text(cap,NULL));
+	if (strcmp(flavor, "kvm") == 0)
+		set_capabilities(atol(cap_flag));
+	cap = cap_get_proc();
+	printf("Capabilities: %s\n\n", cap_to_text(cap,NULL));
+
 	pexit_if(execvp(exe, args) == -1 &&
 		 errno != ENOENT && errno != EACCES,
 		 "Exec of \"%s\" failed", exe);
