@@ -38,11 +38,11 @@ func TestPrivateNetOmittedNetNS(t *testing.T) {
 	defer os.Remove(testImage)
 
 	ctx := newRktRunCtx()
-	if ctx.getFlavor() == "kvm" {
-		t.Skip("FIXME: networking sssie!!!")
-	}
 	defer ctx.cleanup()
 	defer ctx.reset()
+	if ctx.getFlavor() == "kvm" {
+		t.Skip("kvm: no network host mode supported! ")
+	}
 
 	cmd := fmt.Sprintf("%s --debug %s %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
 	t.Logf("Command: %v\n", cmd)
@@ -94,6 +94,9 @@ func TestPrivateNetOmittedConnectivity(t *testing.T) {
 	ctx := newRktRunCtx()
 	defer ctx.cleanup()
 	defer ctx.reset()
+	if ctx.getFlavor() == "kvm" {
+		t.Skip("kvm: no network host mode supported!")
+	}
 
 	cmd := fmt.Sprintf("%s --debug %s %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
 	t.Logf("Command: %v\n", cmd)
@@ -236,7 +239,7 @@ func TestPrivateNetDefaultConnectivity(t *testing.T) {
 			ga.Fatalf("Cannot exec rkt: %v", err)
 			return
 		}
-		expectedRegex := `HTTP-Get received: (.*)\r`
+		expectedRegex := `HTTP-Get received: (.*?)\r` // .* is a greedy operator - lets make it not greedy
 		result, out, err := expectRegexWithOutput(child, expectedRegex)
 		if err != nil {
 			ga.Fatalf("Error: %v\nOutput: %v", err, out)
