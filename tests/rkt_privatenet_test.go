@@ -44,7 +44,7 @@ func TestPrivateNetOmittedNetNS(t *testing.T) {
 		t.Skip("kvm: no network host mode supported! ")
 	}
 
-	cmd := fmt.Sprintf("%s --debug %s %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
+	cmd := fmt.Sprintf("%s %s %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
 	t.Logf("Command: %v\n", cmd)
 	child, err := gexpect.Spawn(cmd)
 	if err != nil {
@@ -98,7 +98,7 @@ func TestPrivateNetOmittedConnectivity(t *testing.T) {
 		t.Skip("kvm: no network host mode supported!")
 	}
 
-	cmd := fmt.Sprintf("%s --debug %s %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
+	cmd := fmt.Sprintf("%s %s %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
 	t.Logf("Command: %v\n", cmd)
 	child, err := gexpect.Spawn(cmd)
 	if err != nil {
@@ -152,7 +152,7 @@ func TestPrivateNetDefaultNetNS(t *testing.T) {
 	defer ctx.cleanup()
 	defer ctx.reset()
 
-	cmd := fmt.Sprintf("%s --debug %s --private-net=default  %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
+	cmd := fmt.Sprintf("%s %s --private-net=default  %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
 	t.Logf("Command: %v\n", cmd)
 	child, err := gexpect.Spawn(cmd)
 	if err != nil {
@@ -232,7 +232,7 @@ func TestPrivateNetDefaultConnectivity(t *testing.T) {
 	hostname, err := os.Hostname()
 	go func() {
 		defer ga.Done()
-		cmd := fmt.Sprintf("%s --debug %s --private-net=default %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
+		cmd := fmt.Sprintf("%s %s --private-net=default %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
 		t.Logf("Command: %v\n", cmd)
 		child, err := gexpect.Spawn(cmd)
 		if err != nil {
@@ -283,14 +283,14 @@ func TestPrivateNetDefaultRestrictedConnectivity(t *testing.T) {
 	defer ctx.cleanup()
 	defer ctx.reset()
 
-	cmd := fmt.Sprintf("%s --debug %s --private-net=default-restricted  %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
+	cmd := fmt.Sprintf("%s  %s --private-net=default-restricted  %s", ctx.cmd(), ctx.defaultRunCommand(), testImage)
 	t.Logf("Command: %v\n", cmd)
 	child, err := gexpect.Spawn(cmd)
 	if err != nil {
 		t.Fatalf("Cannot exec rkt: %v", err)
 	}
 
-	expectedRegex := `IPv4: (.*)\r`
+	expectedRegex := `IPv4: (.*?)\r` // greedy
 	result, out, err := expectRegexWithOutput(child, expectedRegex)
 	if err != nil {
 		t.Fatalf("Error: %v\nOutput: %v", err, out)
@@ -435,7 +435,7 @@ func testPrivateNetCustomDual(t *testing.T, nt networkTemplateT) {
 		testImage := patchTestACI("rkt-inspect-networking1.aci", testImageArgs...)
 		defer os.Remove(testImage)
 
-		cmd := fmt.Sprintf("%s --debug %s --private-net=%v %s", ctx.cmd(), ctx.defaultRunCommand(), nt.Name, testImage)
+		cmd := fmt.Sprintf("%s  %s --private-net=%v %s", ctx.cmd(), ctx.defaultRunCommand(), nt.Name, testImage)
 		fmt.Printf("Command: %v\n", cmd)
 		child, err := gexpect.Spawn(cmd)
 		if err != nil {
@@ -475,7 +475,7 @@ func testPrivateNetCustomDual(t *testing.T, nt networkTemplateT) {
 		testImage := patchTestACI("rkt-inspect-networking2.aci", testImageArgs...)
 		defer os.Remove(testImage)
 
-		cmd := fmt.Sprintf("%s --debug %s --private-net=%v %s", ctx.cmd(), ctx.defaultRunCommand(), nt.Name, testImage)
+		cmd := fmt.Sprintf("%s  %s --private-net=%v %s", ctx.cmd(), ctx.defaultRunCommand(), nt.Name, testImage)
 		fmt.Printf("Command: %v\n", cmd)
 		child, err := gexpect.Spawn(cmd)
 		if err != nil {
@@ -559,14 +559,14 @@ func testPrivateNetCustomNatConnectivity(t *testing.T, nt networkTemplateT) {
 		testImage := patchTestACI("rkt-inspect-networking.aci", testImageArgs...)
 		defer os.Remove(testImage)
 
-		cmd := fmt.Sprintf("%s --debug %s --private-net=%v %s", ctx.cmd(), ctx.defaultRunCommand(), nt.Name, testImage)
+		cmd := fmt.Sprintf("%s  %s --private-net=%v %s", ctx.cmd(), ctx.defaultRunCommand(), nt.Name, testImage)
 		t.Logf("Command: %v\n", cmd)
 		child, err := gexpect.Spawn(cmd)
 		if err != nil {
 			ga.Fatalf("Cannot exec rkt: %v", err)
 			return
 		}
-		expectedRegex := `HTTP-Get received: (.*)\r`
+		expectedRegex := `HTTP-Get received: (.*?)\r`
 		result, out, err := expectRegexWithOutput(child, expectedRegex)
 		if err != nil {
 			ga.Fatalf("Error: %v\nOutput: %v", err, out)
@@ -683,7 +683,7 @@ func TestPrivateNetOverride(t *testing.T) {
 
 	expectedIP := "10.1.4.244"
 
-	cmd := fmt.Sprintf("%s --debug --insecure-skip-verify run --private-net=all --private-net=\"%s:IP=%s\" --mds-register=false %s", ctx.cmd(), nt.Name, expectedIP, testImage)
+	cmd := fmt.Sprintf("%s  --insecure-skip-verify run --private-net=all --private-net=\"%s:IP=%s\" --mds-register=false %s", ctx.cmd(), nt.Name, expectedIP, testImage)
 	fmt.Printf("Command: %v\n", cmd)
 	child, err := gexpect.Spawn(cmd)
 	if err != nil {
