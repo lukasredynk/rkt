@@ -263,6 +263,7 @@ func (p *Pod) appToSystemd(ra *schema.RuntimeApp, interactive bool, flavor strin
 
 	execWrap := []string{"/diagexec", common.RelAppRootfsPath(appName), workDir, RelEnvFilePath(appName), strconv.Itoa(uid), strconv.Itoa(gid)}
 	execStart := quoteExec(append(execWrap, app.Exec...))
+	// execStart = "/usr/bin/bash" // DEBUGGGING
 	opts := []*unit.UnitOption{
 		unit.NewUnitOption("Unit", "Description", fmt.Sprintf("Application=%v Image=%v", appName, imgName)),
 		unit.NewUnitOption("Unit", "DefaultDependencies", "false"),
@@ -271,6 +272,9 @@ func (p *Pod) appToSystemd(ra *schema.RuntimeApp, interactive bool, flavor strin
 		unit.NewUnitOption("Service", "ExecStart", execStart),
 		unit.NewUnitOption("Service", "User", "0"),
 		unit.NewUnitOption("Service", "Group", "0"),
+		// wait for socket
+		unit.NewUnitOption("Unit", "Requires", "sshd.socket"),
+		unit.NewUnitOption("Unit", "After", "sshd.socket"),
 	}
 
 	if interactive {
