@@ -18,7 +18,6 @@ import (
 	"log"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/coreos/rkt/Godeps/_workspace/src/github.com/steveeJ/gexpect"
 )
@@ -88,27 +87,29 @@ func TestEnv(t *testing.T) {
 	}
 	for i, tt := range envTests {
 		// 'run' tests
-		runCmd := replacePlaceholders(tt.runCmd)
-		log.Printf("Running 'run' test #%v: %v\n\n", i, runCmd)
-		child, err := gexpect.Spawn(runCmd)
-		if err != nil {
-			t.Fatalf("Cannot exec rkt #%v: %v", i, err)
-		}
+		/*
+			runCmd := replacePlaceholders(tt.runCmd)
+			log.Printf("Running 'run' test #%v: %v\n\n", i, runCmd)
+			child, err := gexpect.Spawn(runCmd)
+			if err != nil {
+				t.Fatalf("Cannot exec rkt #%v: %v", i, err)
+			}
 
-		err = expectWithOutput(child, tt.runExpect)
-		if err != nil {
-			t.Fatalf("Expected %q but not found: %v", tt.runExpect, err)
-		}
+			err = expectWithOutput(child, tt.runExpect)
+			if err != nil {
+				t.Fatalf("Expected %q but not found: %v", tt.runExpect, err)
+			}
 
-		err = child.Wait()
-		if err != nil {
-			t.Fatalf("rkt didn't terminate correctly: %v", err)
-		}
+			err = child.Wait()
+			if err != nil {
+				t.Fatalf("rkt didn't terminate correctly: %v", err)
+			}
+		*/
 
 		// 'enter' tests
 		sleepCmd := replacePlaceholders(tt.sleepCmd)
 		log.Printf("Running 'enter' test #%v: sleep: %v\n\n", i, sleepCmd)
-		child, err = gexpect.Spawn(sleepCmd)
+		child, err := gexpect.Spawn(sleepCmd)
 		if err != nil {
 			t.Fatalf("Cannot exec rkt #%v: %v", i, err)
 		}
@@ -118,7 +119,7 @@ func TestEnv(t *testing.T) {
 			t.Fatalf("Waited for the prompt but not found #%v: %v", i, err)
 		}
 		// sshd needs a time to boot up!
-		time.Sleep(1 * time.Second)
+		// time.Sleep(5 * time.Second)
 
 		enterCmd := replacePlaceholders(tt.enterCmd)
 		log.Printf("Running 'enter' test #%v: enter: %v\n\n", i, enterCmd)
