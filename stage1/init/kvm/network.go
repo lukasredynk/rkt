@@ -16,11 +16,14 @@ package kvm
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net"
+	"path/filepath"
 
-	"github.com/coreos/rkt/common"
 	"github.com/coreos/rkt/networking"
 
+	"github.com/coreos/rkt/Godeps/_workspace/src/github.com/appc/cni/pkg/plugin"
 	"github.com/coreos/rkt/Godeps/_workspace/src/github.com/coreos/go-systemd/unit"
 )
 
@@ -42,6 +45,7 @@ type netDescriber interface {
 	IfName() string
 	IPMasq() bool
 	Name() string
+	GetRoutes() []plugin.Route
 }
 
 // GetKVMNetArgs returns additional arguments that need to be passed
@@ -52,11 +56,7 @@ func GetKVMNetArgs(nds []netDescriber) ([]string, error) {
 
 	lkvmArgs := []string{}
 
-	for i, nd := range nds {
-		var gw string
-		if nd.IPMasq() {
-			gw = nd.HostIP().String()
-		}
+	for _, nd := range nds {
 		lkvmArgs = append(lkvmArgs, "--network")
 		lkvmArg := fmt.Sprintf("mode=tap,tapif=%s,host_ip=%s,guest_ip=%s", nd.IfName(), nd.HostIP(), nd.GuestIP())
 		lkvmArgs = append(lkvmArgs, lkvmArg)
@@ -66,26 +66,32 @@ func GetKVMNetArgs(nds []netDescriber) ([]string, error) {
 }
 
 func addAddressCommand(address, ifName string) string {
-	return fmt.Sprintf("/bin/ip a a %s dev %s", address, ifName)
+	return fmt.Sprintf("/bin/ip address add %s dev %s", address, ifName)
+}
+
+func upInterfaceCommand(ifName string) string {
+	return fmt.Sprintf("/bin/ip link set dev %s up", ifName)
 }
 
 func addRouteCommand(router string) string {
-	return fmt.Sprintf("/bin/ip r a default via %s", router)
+	return fmt.Sprintf("/bin/ip route add default via %s", router)
 }
 
 func GenerateNetworkInterfaceUnits(root, unitsDir string, netDescriptions []netDescriber) error {
 
-	for i, netDescription := range netDescribers {
+	for i, netDescription := range netDescriptions {
 		ifName := fmt.Sprintf(networking.IfNamePattern, i)
-		address := net.IPNet(
-			netDescription.GuestIP(),
-			net.IPMask(netDescription.Mask()),
-		).String()
+		addressNet := net.IPNet{
+			IP:   netDescription.GuestIP(),
+			Mask: net.IPMask(netDescription.Mask()),
+		}
+		address := addressNet.String()
 		opts := []*unit.UnitOption{
 			unit.NewUnitOption("Unit", "Description", fmt.Sprintf("Network configuration for device: %v", ifName)),
 			unit.NewUnitOption("Unit", "DefaultDependencies", "false"),
 			unit.NewUnitOption("Service", "Type", "oneshot"),
 			unit.NewUnitOption("Service", "RemainAfterExit", "true"),
+			unit.NewUnitOption("Service", "ExecStartPre", upInterfaceCommand(ifName)),
 			unit.NewUnitOption("Service", "ExecStart", addAddressCommand(address, ifName)),
 			unit.NewUnitOption("Install", "RequiredBy", "default.target"),
 		}
@@ -102,7 +108,7 @@ func GenerateNetworkInterfaceUnits(root, unitsDir string, netDescriptions []netD
 		}
 
 		unitsPath := filepath.Join(root, unitsDir)
-		unitName := unit.UnitNamePathEscape(fmt.Sprintf("interface-%s", ifName) + ".service")
+		unitName := fmt.Sprintf("interface-%s", ifName) + ".service"
 		unitBytes, err := ioutil.ReadAll(unit.Serialize(opts))
 		if err != nil {
 			return fmt.Errorf("failed to serialize network unit file to bytes %q: %v", unitName, err)

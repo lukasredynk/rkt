@@ -249,7 +249,7 @@ func installAssets() error {
 }
 
 // getArgsEnv returns the nspawn or lkvm args and env according to the flavor used
-func getArgsEnv(p *Pod, flavor string, debug bool, netDescriptions []kvm.netDescriber) ([]string, []string, error) {
+func getArgsEnv(p *Pod, flavor string, debug bool, n *networking.Networking) ([]string, []string, error) {
 	args := []string{}
 	env := os.Environ()
 
@@ -268,6 +268,7 @@ func getArgsEnv(p *Pod, flavor string, debug bool, netDescriptions []kvm.netDesc
 		// TODO: move to path.go
 		kernelPath := filepath.Join(common.Stage1RootfsPath(p.Root), "bzImage")
 		lkvmPath := filepath.Join(common.Stage1RootfsPath(p.Root), "lkvm")
+		netDescriptions := kvm.GetNetworkDescriptions(n)
 		lkvmNetArgs, err := kvm.GetKVMNetArgs(netDescriptions)
 		if err != nil {
 			return nil, nil, err
@@ -598,14 +599,12 @@ func stage1() int {
 		return 2
 	}
 
-	netDescriptions := kvm.GetNetworkDescriptions(n)
-
-	if err = p.PodToSystemd(interactive, flavor, privateUsers, netDescriptions); err != nil {
+	if err = p.PodToSystemd(interactive, flavor, privateUsers, n); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to configure systemd: %v\n", err)
 		return 2
 	}
 
-	args, env, err := getArgsEnv(p, flavor, debug, netDescriptions)
+	args, env, err := getArgsEnv(p, flavor, debug, n)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		return 3

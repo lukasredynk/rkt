@@ -26,6 +26,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/coreos/rkt/Godeps/_workspace/src/github.com/appc/cni/pkg/plugin"
 	"github.com/coreos/rkt/Godeps/_workspace/src/github.com/appc/spec/schema/types"
 
 	"github.com/coreos/rkt/common"
@@ -55,6 +56,7 @@ type activeNet struct {
 	confBytes []byte
 	conf      *NetConf
 	runtime   *netinfo.NetInfo
+	routes    []plugin.Route
 }
 
 // Loads nets specified by user and default one from stage1

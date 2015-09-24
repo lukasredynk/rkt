@@ -514,11 +514,11 @@ func testPrivateNetCustomDual(t *testing.T, nt networkTemplateT) {
  */
 func testPrivateNetCustomNatConnectivity(t *testing.T, nt networkTemplateT) {
 	ctx := newRktRunCtx()
-	defer ctx.cleanup()
-	defer ctx.reset()
+	// defer ctx.cleanup()
+	// defer ctx.reset()
 
-	netdir := prepareTestNet(t, ctx, nt)
-	defer os.RemoveAll(netdir)
+	_ = prepareTestNet(t, ctx, nt)
+	// defer os.RemoveAll(netdir)
 
 	httpPort, err := testutils.GetNextFreePort4()
 	if err != nil {
@@ -543,7 +543,7 @@ func testPrivateNetCustomNatConnectivity(t *testing.T, nt networkTemplateT) {
 	// Host opens the server
 	ga.Add(1)
 	go func() {
-		defer ga.Done()
+		// defer ga.Done()
 		err := testutils.HttpServe(httpServeAddr, httpServeTimeout)
 		if err != nil {
 			t.Fatalf("Error during HttpServe: %v", err)
@@ -554,10 +554,10 @@ func testPrivateNetCustomNatConnectivity(t *testing.T, nt networkTemplateT) {
 	ga.Add(1)
 	hostname, err := os.Hostname()
 	go func() {
-		defer ga.Done()
+		// defer ga.Done()
 		testImageArgs := []string{fmt.Sprintf("--exec=/inspect --get-http=%v", httpGetAddr)}
 		testImage := patchTestACI("rkt-inspect-networking.aci", testImageArgs...)
-		defer os.Remove(testImage)
+		// defer os.Remove(testImage)
 
 		cmd := fmt.Sprintf("%s  %s --private-net=%v %s", ctx.cmd(), ctx.defaultRunCommand(), nt.Name, testImage)
 		t.Logf("Command: %v\n", cmd)
@@ -637,7 +637,7 @@ func TestPrivateNetCustomBridge(t *testing.T) {
 		Name:      "bridge0",
 		Type:      "bridge",
 		IpMasq:    true,
-		IsGateway: true,
+		IsGateway: false,
 		Master:    iface.Name, // REMOVE TODO
 		Ipam: ipamTemplateT{
 			Type:   "host-local",

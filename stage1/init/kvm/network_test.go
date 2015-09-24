@@ -25,6 +25,7 @@ type testNetDescriber struct {
 	mask    net.IP
 	ifName  string
 	ipMasq  bool
+	name    string
 }
 
 func (t testNetDescriber) HostIP() net.IP  { return t.hostIP }
@@ -32,12 +33,12 @@ func (t testNetDescriber) GuestIP() net.IP { return t.guestIP }
 func (t testNetDescriber) Mask() net.IP    { return t.mask }
 func (t testNetDescriber) IfName() string  { return t.ifName }
 func (t testNetDescriber) IPMasq() bool    { return t.ipMasq }
+func (t testNetDescriber) Name() string    { return t.name }
 
 func TestGetKVMNetArgs(t *testing.T) {
 	tests := []struct {
 		netDescriptions []netDescriber
 		expectedLkvm    []string
-		expectedKernel  []string
 	}{
 		{ // without Masquerading - not gw passed to kernel
 			netDescriptions: []netDescriber{
@@ -47,10 +48,10 @@ func TestGetKVMNetArgs(t *testing.T) {
 					net.ParseIP("255.255.255.0"),
 					"fooInt",
 					false,
+					"netName",
 				},
 			},
-			expectedLkvm:   []string{"--network", "mode=tap,tapif=fooInt,host_ip=1.1.1.1,guest_ip=2.2.2.2"},
-			expectedKernel: []string{"ip=2.2.2.2:::255.255.255.0::eth0:::"},
+			expectedLkvm: []string{"--network", "mode=tap,tapif=fooInt,host_ip=1.1.1.1,guest_ip=2.2.2.2"},
 		},
 		{ // extra gw passed to kernel on (thrid position)
 			netDescriptions: []netDescriber{
@@ -58,10 +59,12 @@ func TestGetKVMNetArgs(t *testing.T) {
 					net.ParseIP("1.1.1.1"),
 					net.ParseIP("2.2.2.2"),
 					net.ParseIP("255.255.255.0"),
-					"barInt", true},
+					"barInt",
+					true,
+					"netName",
+				},
 			},
-			expectedLkvm:   []string{"--network", "mode=tap,tapif=barInt,host_ip=1.1.1.1,guest_ip=2.2.2.2"},
-			expectedKernel: []string{"ip=2.2.2.2::1.1.1.1:255.255.255.0::eth0:::"},
+			expectedLkvm: []string{"--network", "mode=tap,tapif=barInt,host_ip=1.1.1.1,guest_ip=2.2.2.2"},
 		},
 		{ // two networks
 			netDescriptions: []netDescriber{
@@ -71,26 +74,26 @@ func TestGetKVMNetArgs(t *testing.T) {
 					net.ParseIP("255.255.255.0"),
 					"fooInt",
 					false,
+					"netName",
 				},
 				testNetDescriber{
 					net.ParseIP("1.1.1.1"),
 					net.ParseIP("2.2.2.2"),
 					net.ParseIP("255.255.255.0"),
-					"barInt", true},
+					"barInt",
+					true,
+					"netName",
+				},
 			},
 			expectedLkvm: []string{
 				"--network", "mode=tap,tapif=fooInt,host_ip=1.1.1.1,guest_ip=2.2.2.2",
 				"--network", "mode=tap,tapif=barInt,host_ip=1.1.1.1,guest_ip=2.2.2.2",
 			},
-			expectedKernel: []string{
-				"ip=2.2.2.2:::255.255.255.0::eth0:::",
-				"ip=2.2.2.2::1.1.1.1:255.255.255.0::eth1:::",
-			},
 		},
 	}
 
 	for i, tt := range tests {
-		gotLkvm, gotKernel, err := GetKVMNetArgs(tt.netDescriptions)
+		gotLkvm, err := GetKVMNetArgs(tt.netDescriptions)
 		if err != nil {
 			t.Errorf("got error: %s", err)
 		}
@@ -100,15 +103,6 @@ func TestGetKVMNetArgs(t *testing.T) {
 			for iarg, argExpected := range tt.expectedLkvm {
 				if gotLkvm[iarg] != argExpected {
 					t.Errorf("#%d: lkvm arg %d expected `%v` got `%v`", i, iarg, argExpected, gotLkvm[iarg])
-				}
-			}
-		}
-		if len(gotKernel) != len(tt.expectedKernel) {
-			t.Errorf("#%d: expected kernel %v elements got %v", i, len(tt.expectedKernel), len(gotKernel))
-		} else {
-			for iarg, argExpected := range tt.expectedKernel {
-				if gotKernel[iarg] != argExpected {
-					t.Errorf("#%d: kernel arg %d expected `%v` got `%v`", i, iarg, argExpected, gotKernel[iarg])
 				}
 			}
 		}

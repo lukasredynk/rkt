@@ -39,8 +39,8 @@ const (
 
 type BridgeNetConf struct {
 	NetConf
-	brName string `json:"bridge"`
-	isGw   bool   `json:"isGateway"`
+	BrName string `json:"bridge"`
+	IsGw   bool   `json:"isGateway"`
 }
 
 // setupTapDevice creates persistent tap device
@@ -205,13 +205,13 @@ func kvmSetup(podRoot string, podID types.UUID, fps []ForwardedPort, privateNetL
 				NetConf: NetConf{
 					MTU: defaultMTU,
 				},
-				brName: defaultBrName,
+				BrName: defaultBrName,
 			}
 			if err := json.Unmarshal(n.confBytes, &config); err != nil {
 				return nil, fmt.Errorf("error parsing %q result: %v", n.conf.Name, err)
 			}
 
-			br, err := ensureBridgeIsUp(config.brName, config.MTU)
+			br, err := ensureBridgeIsUp(config.BrName, config.MTU)
 			if err != nil {
 				return nil, fmt.Errorf("error in time of bridge setup: %v", err)
 			}
@@ -233,7 +233,7 @@ func kvmSetup(podRoot string, podID types.UUID, fps []ForwardedPort, privateNetL
 				return nil, err
 			}
 
-			if config.isGw {
+			if config.IsGw {
 				// add address to host bridge device
 				err = ensureHasAddr(
 					br,
@@ -340,6 +340,10 @@ func (an activeNet) Name() string {
 }
 func (an activeNet) IPMasq() bool {
 	return an.conf.IPMasq
+}
+func (an activeNet) GetRoutes() []plugin.Route {
+	// TODODO DODODODODODODO i skad to wziasccccccccccccc
+	return an.routes
 }
 
 // GetActiveNetworks returns activeNets to be used as NetDescriptors
