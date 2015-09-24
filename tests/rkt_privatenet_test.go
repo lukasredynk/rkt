@@ -418,11 +418,11 @@ func testPrivateNetCustomDual(t *testing.T, nt networkTemplateT) {
 	}
 
 	ctx := newRktRunCtx()
-	defer ctx.cleanup()
-	defer ctx.reset()
+	// defer ctx.cleanup()
+	// defer ctx.reset()
 
-	netdir := prepareTestNet(t, ctx, nt)
-	defer os.RemoveAll(netdir)
+	_ = prepareTestNet(t, ctx, nt)
+	// defer os.RemoveAll(netdir)
 
 	container1IPv4, container1Hostname := make(chan string), make(chan string)
 	ga := testutils.NewGoroutineAssistant(t)
@@ -433,7 +433,7 @@ func testPrivateNetCustomDual(t *testing.T, nt networkTemplateT) {
 		httpServeAddr := fmt.Sprintf("0.0.0.0:%v", httpPort)
 		testImageArgs := []string{"--exec=/inspect --print-ipv4=eth0 --serve-http=" + httpServeAddr}
 		testImage := patchTestACI("rkt-inspect-networking1.aci", testImageArgs...)
-		defer os.Remove(testImage)
+		// defer os.Remove(testImage)
 
 		cmd := fmt.Sprintf("%s  %s --private-net=%v %s", ctx.cmd(), ctx.defaultRunCommand(), nt.Name, testImage)
 		fmt.Printf("Command: %v\n", cmd)
@@ -638,7 +638,7 @@ func TestPrivateNetCustomBridge(t *testing.T) {
 		Type:      "bridge",
 		IpMasq:    true,
 		IsGateway: true,
-		Master:    iface.Name,
+		Master:    iface.Name, // REMOVE TODO
 		Ipam: ipamTemplateT{
 			Type:   "host-local",
 			Subnet: "10.1.3.0/24",
