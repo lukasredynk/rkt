@@ -434,7 +434,7 @@ func (p *Pod) writeEnvFile(env types.Environment, appName types.ACName, privateU
 
 // PodToSystemd creates the appropriate systemd service unit files for
 // all the constituent apps of the Pod
-func (p *Pod) PodToSystemd(interactive bool, flavor string, privateUsers string) error {
+func (p *Pod) PodToSystemd(interactive bool, flavor string, privateUsers string, netDescriptions []kvm.netDescriber) error {
 
 	if flavor == "kvm" {
 		// prepare all applications names to become dependency for mount units
@@ -449,6 +449,10 @@ func (p *Pod) PodToSystemd(interactive bool, flavor string, privateUsers string)
 		err := kvm.PodToSystemdHostMountUnits(common.Stage1RootfsPath(p.Root), p.Manifest.Volumes, appNames, unitsDir)
 		if err != nil {
 			return fmt.Errorf("failed to transform pod volumes into mount units: %v", err)
+		}
+		err = kvm.GenerateNetworkInterfaceUnits(common.Stage1RootfsPath(p.Root), unitsDir, netDescriptions)
+		if err != nil {
+			return fmt.Errorf("network configuration error: %v", err)
 		}
 	}
 
