@@ -22,6 +22,7 @@ import (
 	"log"
 	"net"
 	"syscall"
+	"time"
 
 	"github.com/coreos/rkt/Godeps/_workspace/src/github.com/appc/cni/pkg/ip"
 	cnitypes "github.com/coreos/rkt/Godeps/_workspace/src/github.com/appc/cni/pkg/types"
@@ -53,12 +54,13 @@ func setupTapDevice(podID types.UUID) (netlink.Link, error) {
 	if err != nil {
 		return nil, fmt.Errorf("tuntap persist %v", err)
 	}
+
 	link, err := netlink.LinkByName(ifName)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find link %q: %v", ifName, err)
 	}
-	err = netlink.LinkSetUp(link)
-	if err != nil {
+
+	if err := netlink.LinkSetUp(link); err != nil {
 		return nil, fmt.Errorf("cannot set link up %q: %v", ifName, err)
 	}
 	return link, nil
@@ -66,7 +68,7 @@ func setupTapDevice(podID types.UUID) (netlink.Link, error) {
 
 // kvmSetupNetAddressing calls IPAM plugin (with a hack) to reserve an IP to be
 // used by newly create tuntap pair
-// in result it updates activeNet.runtime configuration with IP, Mask and HostIP
+// in result it updates activeNet.runtime configuration
 func kvmSetupNetAddressing(network *Networking, n activeNet, ifName string) error {
 	// TODO: very ugly hack, that go through upper plugin, down to ipam plugin
 	if err := ip.EnableIP4Forward(); err != nil {
@@ -87,7 +89,7 @@ func kvmSetupNetAddressing(network *Networking, n activeNet, ifName string) erro
 		return fmt.Errorf("net-plugin returned no IPv4 configuration")
 	}
 
-	n.runtime.IP, n.runtime.Mask, n.runtime.HostIP = result.IP4.IP.IP, net.IP(result.IP4.IP.Mask), result.IP4.Gateway
+	n.runtime.IP, n.runtime.Mask, n.runtime.HostIP, n.runtime.IP4 = result.IP4.IP.IP, net.IP(result.IP4.IP.Mask), result.IP4.Gateway, result.IP4
 	return nil
 }
 
@@ -155,6 +157,35 @@ func ensureBridgeIsUp(brName string, mtu int) (*netlink.Bridge, error) {
 	return br, nil
 }
 
+func addRoute(link netlink.Link, podIP net.IP) error {
+	route := netlink.Route{
+		LinkIndex: link.Attrs().Index,
+		Scope:     netlink.SCOPE_LINK,
+		Dst: &net.IPNet{
+			IP:   podIP,
+			Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0xff),
+		},
+	}
+	log.Printf("Adding route %s to pod ip\n", route.String())
+	return netlink.RouteAdd(&route)
+}
+
+func removeAllRoutesOnLink(link netlink.Link) error {
+	routes, err := netlink.RouteList(link, netlink.FAMILY_V4)
+	if err != nil {
+		return fmt.Errorf("cannot list routes on link %q: %v", link.Attrs().Name, err)
+	}
+
+	for _, route := range routes {
+		log.Printf("Removing route: %s\n", route.String())
+		if err := netlink.RouteDel(&route); err != nil {
+			return fmt.Errorf("error in time of route removal for route %q: %v", route, err)
+		}
+	}
+
+	return nil
+}
+
 // kvmSetup prepare new Networking to be used in kvm environment based on tuntap pair interfaces
 // to allow communication with virtual machine created by lkvm tool
 // right now it only supports default "ptp" network type (other types ends with error)
@@ -192,12 +223,21 @@ func kvmSetup(podRoot string, podID types.UUID, fps []ForwardedPort, privateNetL
 			err = ensureHasAddr(
 				link,
 				&net.IPNet{
-					IP:   n.runtime.HostIP,
+					IP:   n.runtime.IP4.Gateway,
 					Mask: net.IPMask(n.runtime.Mask),
 				},
 			)
 			if err != nil {
 				return nil, fmt.Errorf("cannot add address to host tap device %q: %v", ifName, err)
+			}
+
+			time.Sleep(time.Second / 2) // HACKHACKHACK - without this delay below changes in routes are not persistent
+			if err := removeAllRoutesOnLink(link); err != nil {
+				return nil, fmt.Errorf("cannot remove route on host tap device %q: %v", ifName, err)
+			}
+
+			if err := addRoute(link, n.runtime.IP); err != nil {
+				return nil, fmt.Errorf("cannot add on host direct route to pod: %v", err)
 			}
 
 		case "bridge":
@@ -234,14 +274,14 @@ func kvmSetup(podRoot string, podID types.UUID, fps []ForwardedPort, privateNetL
 			}
 
 			if config.IsGw {
-				// add address to host bridge device
 				err = ensureHasAddr(
 					br,
 					&net.IPNet{
-						IP:   n.runtime.HostIP,
+						IP:   n.runtime.IP4.Gateway,
 						Mask: net.IPMask(n.runtime.Mask),
 					},
 				)
+
 				if err != nil {
 					return nil, fmt.Errorf("cannot add address to host bridge device %q: %v", br.Name, err)
 				}
@@ -282,7 +322,6 @@ func (n *Networking) teardownKvmNets() {
 		case "ptp", "bridge":
 			// remove tuntap interface
 			tuntap.RemovePersistentIface(an.runtime.IfName, tuntap.Tap)
-
 		default:
 			log.Printf("Unsupported network type: %q", an.conf.Type)
 			return
@@ -340,6 +379,12 @@ func (an activeNet) Name() string {
 }
 func (an activeNet) IPMasq() bool {
 	return an.conf.IPMasq
+}
+func (an activeNet) Gateway() net.IP {
+	return an.runtime.IP4.Gateway
+}
+func (an activeNet) Routes() []cnitypes.Route {
+	return an.runtime.IP4.Routes
 }
 
 // GetActiveNetworks returns activeNets to be used as NetDescriptors
