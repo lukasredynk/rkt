@@ -113,6 +113,11 @@ func runRun(cmd *cobra.Command, args []string) (exit int) {
 		privateUsers.SetRandomUidRange(uid.DefaultRangeCount)
 	}
 
+	// make --private-net default with "all" value
+	if !flagPrivateNet.Any() {
+		flagPrivateNet.Set("all")
+	}
+
 	if len(flagPorts) > 0 && !flagPrivateNet.Any() {
 		stderr("--port flag requires --private-net")
 		return 1
