@@ -65,7 +65,14 @@ func getPodDefaultIP(workDir string) (string, error) {
 	if len(nets) == 0 {
 		return "", fmt.Errorf("Pod has no configured networks")
 	}
-	return nets[0].IP.String(), nil
+
+	for _, net := range nets {
+		if net.NetName == "default" || net.NetName == "default-restricted" {
+			return net.IP.String(), nil
+		}
+	}
+
+	return "", fmt.Errorf("Pod has no defautl network!")
 }
 
 func getDiagexecArgs() []string {
