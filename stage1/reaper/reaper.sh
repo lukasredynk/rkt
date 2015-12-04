@@ -14,5 +14,6 @@ if [ $# -eq 1 ]; then
         # command will fail and rkt will just exit with return code 0.
         ${SYSCTL} exit ${status#*=} 2>/dev/null
     fi
+    sync
     exit 0
 fi

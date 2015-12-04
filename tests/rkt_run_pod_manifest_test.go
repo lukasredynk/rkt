@@ -446,7 +446,7 @@ func TestPodManifest(t *testing.T) {
 							Isolators: []types.Isolator{
 								{
 									Name:     "resource/cpu",
-									ValueRaw: rawRequestLimit("100", "100"),
+									ValueRaw: rawRequestLimit("12", "12"),
 								},
 							},
 						},
@@ -454,7 +454,7 @@ func TestPodManifest(t *testing.T) {
 				},
 			},
 			true,
-			`CPU Quota: 100`,
+			`CPU Quota: 12`,
 			"cpu",
 		},
 		{

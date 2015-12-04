@@ -103,6 +103,24 @@ func TestPidFileDelayedStart(t *testing.T) {
 
 // Check that "enter" doesn't wait forever for the ppid file when the pod is terminated
 func TestPidFileAbortedStart(t *testing.T) {
+
+	var (
+		shouldSucceed string
+		processStatus int
+	)
+
+	// Configure escape sequence and expected exit code for flavors
+	if isKVM() {
+		// For kvm escape character is ^Ax. This process will exit with code 0
+		// If pod won't stop after sending escape sequence, than test will wait
+		// till go test timeout.
+		shouldSucceed = "\001\170"
+		processStatus = 0
+	} else {
+		// For nspawn escape character is ^]^]^]. This process will exit with code 1
+		shouldSucceed = "\035\035\035"
+		processStatus = 1
+	}
 	sleepImage := patchTestACI("rkt-inspect-sleep.aci", "--exec=/inspect --read-stdin")
 	defer os.Remove(sleepImage)
 
@@ -111,11 +129,11 @@ func TestPidFileAbortedStart(t *testing.T) {
 
 	runChild, enterChild, _, _ := preparePidFileRace(t, ctx, sleepImage)
 
-	// Terminate the pod with the escape sequence: ^]^]^]
-	if err := runChild.SendLine("\035\035\035"); err != nil {
+	// Terminate the pod with the escape sequence
+	if err := runChild.SendLine(shouldSucceed); err != nil {
 		t.Fatalf("Failed to terminate the pod: %v", err)
 	}
-	waitOrFail(t, runChild, 1)
+	waitOrFail(t, runChild, processStatus)
 
 	// Now the "enter" command terminates quickly
 	before := time.Now()

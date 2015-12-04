@@ -35,7 +35,7 @@ func TestAceValidator(t *testing.T) {
 		newStringSet("main", "sidekick"),
 		newStringSet("poststop"),
 	}
-	pattern := `ace-validator\[\d+\]: ([[:alpha:]]+) OK`
+	pattern := ` ([[:alpha:]]+) OK`
 
 	ctx := testutils.NewRktRunCtx()
 	defer ctx.Cleanup()
