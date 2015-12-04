@@ -90,18 +90,32 @@ func TestCaps(t *testing.T) {
 		defer os.Remove(stage2FileName)
 		stageFileNames := []string{stage1FileName, stage2FileName}
 
-		for _, stage := range []int{1, 2} {
+		var stages []int
+		if isKVM() {
+			fmt.Printf("KVM will always has got full capabilities, but It also has got full isolation from host. SKipping \n")
+			stages = []int{2}
+		} else {
+			stages = append(stages, []int{1, 2}...)
+		}
+
+		for _, stage := range stages {
 			t.Logf("Running test #%v: %v [stage %v]", i, tt.testName, stage)
 
 			cmd := fmt.Sprintf("%s --debug --insecure-options=image run --mds-register=false --set-env=CAPABILITY=%d %s", ctx.Cmd(), int(tt.capa), stageFileNames[stage-1])
 			child := spawnOrFail(t, cmd)
 
 			expectedLine := tt.capa.String()
-			if (stage == 1 && tt.capInStage1Expected) || (stage == 2 && tt.capInStage2Expected) {
+
+			// KVM flavor runs systemd stage1 with full capabilities (because full isolation and need of hardware access) in stage1 (pid=1)
+			// so expect every capability enable here
+			capInStage1Expected := tt.capInStage1Expected || isKVM()
+
+			if (stage == 1 && capInStage1Expected) || (stage == 2 && tt.capInStage2Expected) {
 				expectedLine += "=enabled"
 			} else {
 				expectedLine += "=disabled"
 			}
+
 			if err := expectWithOutput(child, expectedLine); err != nil {
 				t.Fatalf("Expected %q but not found: %v", expectedLine, err)
 			}

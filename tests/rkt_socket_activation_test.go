@@ -51,6 +51,9 @@ func randomFreePort(t *testing.T) (int, error) {
 }
 
 func TestSocketActivation(t *testing.T) {
+	if isKVM() {
+		t.Skipf("TODO kvm")
+	}
 	if !sd_util.IsRunningSystemd() {
 		t.Skip("Systemd is not running on the host.")
 	}

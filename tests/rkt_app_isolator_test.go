@@ -101,6 +101,11 @@ func TestAppIsolatorCPU(t *testing.T) {
 }
 
 func TestCgroups(t *testing.T) {
+	if isKVM() {
+		// systemd-nspawn is using host cgroups, capabilities and devices instead of lkvm which is booting light VM with own kernel and cgroups.
+		// In kvm flavor case this test is unnecessary
+		t.Skipf("KVM flavor is running with own cgroups, access to them doesn't affect rkt host")
+	}
 	ctx := testutils.NewRktRunCtx()
 	defer ctx.Cleanup()
 
