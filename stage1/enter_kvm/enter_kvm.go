@@ -17,17 +17,19 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
 
+	"github.com/coreos/rkt/common"
 	"github.com/coreos/rkt/networking/netinfo"
 	"github.com/coreos/rkt/pkg/lock"
 )
 
 const (
-	kvmSettingsDir        = "kvm"
+	kvmSettingsDir        = "/var/lib/rkt-stage1-kvm"
 	kvmPrivateKeyFilename = "ssh_kvm_key"
 	// TODO: overwrite below default by environment value + generate .socket unit just before pod start
 	kvmSSHPort = "122" // hardcoded value in .socket file
@@ -37,6 +39,92 @@ var (
 	podPid  string
 	appName string
 )
+
+// fileAccessible checks if the given path exists and is a regular file
+func fileAccessible(path string) bool {
+	if info, err := os.Stat(path); err == nil {
+		return info.Mode().IsRegular()
+	}
+	return false
+}
+
+func sshPrivateKeyPath() string {
+	return filepath.Join(kvmSettingsDir, kvmPrivateKeyFilename)
+}
+
+func sshPublicKeyPath() string {
+	return sshPrivateKeyPath() + ".pub"
+}
+
+// generateKeyPair calls ssh-keygen with private key location for key generation purpose
+func generateKeyPair(private string) error {
+	out, err := exec.Command(
+		"ssh-keygen",
+		"-q",        // silence
+		"-t", "dsa", // type
+		"-b", "1024", // length in bits
+		"-f", private, // output file
+		"-N", "", // no passphrase
+	).Output()
+	if err != nil {
+		// out is in form of bytes buffer and we have to turn it into slice ending on first \0 occurence
+		return fmt.Errorf("error in keygen time. ret_val: %v, output: %v", err, string(out[:]))
+	}
+	return nil
+}
+
+func ensureKeysExistOnHost() error {
+	private, public := sshPrivateKeyPath(), sshPublicKeyPath()
+	if !fileAccessible(private) || !fileAccessible(public) {
+		if err := os.MkdirAll(kvmSettingsDir, 0700); err != nil {
+			return err
+		}
+
+		if err := generateKeyPair(private); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ensureAuthorizedKeysExist(keyDirPath string) error {
+	fout, err := os.OpenFile(
+		filepath.Join(keyDirPath, "/authorized_keys"),
+		os.O_CREATE|os.O_TRUNC|os.O_WRONLY,
+		0600,
+	)
+	if err != nil {
+		return err
+	}
+	defer fout.Close()
+
+	fin, err := os.Open(sshPublicKeyPath())
+	if err != nil {
+		return err
+	}
+	defer fin.Close()
+
+	if _, err := io.Copy(fout, fin); err != nil {
+		return err
+	}
+	return fout.Sync()
+}
+
+func ensureKeysExistInPod(workDir string) error {
+	destRootfs := common.Stage1RootfsPath(workDir)
+	keyDirPath := filepath.Join(destRootfs, "/root", "/.ssh")
+	if err := os.MkdirAll(keyDirPath, 0700); err != nil {
+		return err
+	}
+	return ensureAuthorizedKeysExist(keyDirPath)
+}
+
+func kvmCheckSSHSetup(workDir string) error {
+	if err := ensureKeysExistOnHost(); err != nil {
+		return err
+	}
+	return ensureKeysExistInPod(workDir)
+}
 
 func init() {
 	flag.StringVar(&podPid, "pid", "", "podPID")
@@ -111,8 +199,12 @@ func execSSH() error {
 		return fmt.Errorf("cannot find 'ssh' binary in PATH: %v", err)
 	}
 
+	if err := kvmCheckSSHSetup(workDir); err != nil {
+		return fmt.Errorf("error setting up ssh keys: %v", err)
+	}
+
 	// prepare args for ssh invocation
-	keyFile := filepath.Join(kvmSettingsDir, kvmPrivateKeyFilename)
+	keyFile := sshPrivateKeyPath()
 	args := []string{
 		"ssh",
 		"-t",          // use tty
