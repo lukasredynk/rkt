@@ -43,6 +43,7 @@ import (
 	"github.com/coreos/rkt/common"
 	"github.com/coreos/rkt/common/cgroup"
 	"github.com/coreos/rkt/pkg/uid"
+	"github.com/coreos/rkt/stage1/init/kvm"
 )
 
 const (
@@ -58,6 +59,37 @@ var (
 		"USER":    "root",
 		"LOGNAME": "root",
 		"HOME":    "/root",
+	}
+
+	// List of default capabilities inside systemd-nspawn pod is available
+	// here: https://www.freedesktop.org/software/systemd/man/systemd-nspawn.html
+	stdCapabilities = []string{
+		"CAP_CHOWN",
+		"CAP_DAC_OVERRIDE",
+		"CAP_DAC_READ_SEARCH",
+		"CAP_FOWNER",
+		"CAP_FSETID",
+		"CAP_IPC_OWNER",
+		"CAP_KILL",
+		"CAP_LEASE",
+		"CAP_LINUX_IMMUTABLE",
+		"CAP_NET_BIND_SERVICE",
+		"CAP_NET_BROADCAST",
+		"CAP_NET_RAW",
+		"CAP_SETGID",
+		"CAP_SETFCAP",
+		"CAP_SETPCAP",
+		"CAP_SETUID",
+		"CAP_SYS_ADMIN",
+		"CAP_SYS_CHROOT",
+		"CAP_SYS_NICE",
+		"CAP_SYS_PTRACE",
+		"CAP_SYS_TTY_CONFIG",
+		"CAP_SYS_RESOURCE",
+		"CAP_SYS_BOOT",
+		"CAP_AUDIT_WRITE",
+		"CAP_AUDIT_CONTROL",
+		"CAP_MKNOD",
 	}
 )
 
@@ -346,6 +378,12 @@ func appToSystemd(p *stage1commontypes.Pod, ra *schema.RuntimeApp, interactive b
 		opts = append(opts, unit.NewUnitOption("Service", "StandardOutput", "journal+console"))
 		opts = append(opts, unit.NewUnitOption("Service", "StandardError", "journal+console"))
 		opts = append(opts, unit.NewUnitOption("Service", "SyslogIdentifier", filepath.Base(app.Exec[0])))
+	}
+
+	if flavor == "kvm" {
+		capabilities := kvm.GetAppCapabilities(app)
+		capabilities = append(capabilities, stdCapabilities...)
+		opts = append(opts, unit.NewUnitOption("Service", "CapabilityBoundingSet", strings.Join(capabilities, " ")))
 	}
 
 	// When an app fails, we shut down the pod
