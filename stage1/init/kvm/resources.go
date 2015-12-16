@@ -66,3 +66,19 @@ func GetAppsResources(apps schema.AppList) (totalCpus, totalMem int64) {
 
 	return totalCpus, totalMem
 }
+
+// GetAppCapabilities is a filter which returns list of valid Linux capabilities
+// Function requires a manifest of application
+func GetAppCapabilities(app *types.App) []string {
+
+	var caps []string
+	for _, i := range app.Isolators {
+		switch v := i.Value().(type) {
+		case types.LinuxCapabilitiesSet:
+			for _, c := range v.Set() {
+				caps = append(caps, string(c))
+			}
+		}
+	}
+	return caps
+}
