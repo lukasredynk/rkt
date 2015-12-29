@@ -23,14 +23,15 @@ import (
 	"path/filepath"
 	"strings"
 
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
+	"io/ioutil"
+
 	"github.com/coreos/rkt/common"
 	"github.com/coreos/rkt/networking/netinfo"
 	"github.com/coreos/rkt/pkg/lock"
 	"golang.org/x/crypto/ssh"
-	"io/ioutil"
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
 )
 
 const (
@@ -57,15 +58,15 @@ func generateKeyPair() error {
 	if err := os.MkdirAll(kvmSettingsDir, 0700); err != nil {
 		return err
 	}
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2014)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		return err
 	}
 	privateKeyRaw := x509.MarshalPKCS1PrivateKey(privateKey)
 	privateKeyBlock := pem.Block{
-		Type: "RSA PRIVATE KEY",
+		Type:    "RSA PRIVATE KEY",
 		Headers: nil,
-		Bytes: privateKeyRaw,
+		Bytes:   privateKeyRaw,
 	}
 	privateKeyPem := pem.EncodeToMemory(&privateKeyBlock)
 
@@ -141,8 +142,8 @@ func getAppexecArgs() string {
 		fmt.Sprintf("/opt/stage2/%s/rootfs", appName),
 		"/", // as in ../enter/enter.c - this should be app.WorkingDirectory
 		fmt.Sprintf("/rkt/env/%s", appName),
-		"0", // uid
-		"0", // gid
+		u.Uid, // uid
+		u.Gid, // gid
 	}
 	args = append(args, flag.Args()...)
 	return strings.Join(args, " ")
@@ -200,9 +201,25 @@ func execSSH() error {
 			session.Setenv(pair[0], pair[1])
 		}
 	}
+	session.Stdout = os.Stdout
+	session.Stderr = os.Stderr
+	session.Stdin = os.Stdin
+
+	modes := ssh.TerminalModes{
+		ssh.ECHO:          0,
+		ssh.TTY_OP_ISPEED: 14400,
+		ssh.TTY_OP_OSPEED: 14400,
+	}
+	if err := session.RequestPty("xterm", 80, 40, modes); err != nil {
+		return fmt.Errorf("request for pseudo terminal failed: %v", err)
+	}
+
 	cmd := getAppexecArgs()
-	err = session.Run(cmd)
-	return fmt.Errorf("cannot enter through ssh: %v", err)
+	if err = session.Run(cmd); err != nil {
+		return fmt.Errorf("cannot enter through ssh: %v", err)
+	}
+
+	return nil
 }
 
 func main() {
@@ -213,6 +230,8 @@ func main() {
 	}
 
 	// execSSH should returns only with error
-	fmt.Fprintf(os.Stderr, "%v\n", execSSH())
-	os.Exit(2)
+	if err := execSSH(); err != nil {
+		os.Exit(2)
+	}
+	os.Exit(0)
 }
