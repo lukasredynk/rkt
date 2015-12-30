@@ -28,10 +28,11 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 
+	"github.com/coreos/rkt/Godeps/_workspace/src/golang.org/x/crypto/ssh"
+
 	"github.com/coreos/rkt/common"
 	"github.com/coreos/rkt/networking/netinfo"
 	"github.com/coreos/rkt/pkg/lock"
-	"golang.org/x/crypto/ssh"
 )
 
 const (

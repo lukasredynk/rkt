@@ -10,5 +10,8 @@ github.com/appc/cni/plugins/main/macvlan
 github.com/appc/cni/plugins/main/ptp
 github.com/appc/cni/plugins/meta/flannel
 
+# Vendor in kvm flavour, which is used in entering
+github.com/coreos/rkt/stage1/enter_kvm
+
 # Vendor in ACE, which is used in functional tests
 github.com/appc/spec/ace
