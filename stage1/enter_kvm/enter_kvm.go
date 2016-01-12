@@ -182,6 +182,8 @@ func getAppexecArgs() []string {
 		fmt.Sprintf("/rkt/env/%s", appName),
 		u.Uid,
 		u.Gid,
+		"-e", /* entering phase */
+		"--",
 	}
 	return append(args, flag.Args()...)
 }
