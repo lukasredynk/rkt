@@ -22,41 +22,51 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"testing"
 	"time"
 
 	sd_dbus "github.com/coreos/go-systemd/dbus"
 	sd_util "github.com/coreos/go-systemd/util"
 	"github.com/coreos/rkt/tests/testutils"
+	"github.com/vishvananda/netlink"
 )
 
-func randomFreePort(t *testing.T) (int, error) {
-	l, err := net.Listen("tcp", "")
-	if err != nil {
-		return -1, err
-	}
-	defer l.Close()
-
-	addr := l.Addr().String()
-
-	n := strings.LastIndex(addr, ":")
-	port, err := strconv.Atoi(addr[n+1:])
-	if err != nil {
-		return -1, err
-	}
-
-	return port, nil
-}
-
-func TestSocketActivation(t *testing.T) {
-	if isKVM() {
-		t.Skipf("TODO kvm")
+func TestSocketProxyd(t *testing.T) {
+	if !isKvm() {
+		t.Skipf("Only KVM flavour workaround for socket activation.")
 	}
 	if !sd_util.IsRunningSystemd() {
 		t.Skip("Systemd is not running on the host.")
 	}
+
+	ctx := testutils.NewRktRunCtx()
+	defer ctx.Cleanup()
+
+	iface, _, err := testutils.GetNonLoIfaceWithAddrs(netlink.FAMILY_V4)
+	if err != nil {
+		t.Fatalf("Error while getting non-lo host interface: %v\n", err)
+	}
+	if iface.Name == "" {
+		t.Skipf("Cannot run test without non-lo host interface")
+	}
+
+	nt := networkTemplateT{
+		Name:      "bridge0",
+		Type:      "bridge",
+		IpMasq:    true,
+		IsGateway: true,
+		Master:    iface.Name,
+		Ipam: ipamTemplateT{
+			Type:   "host-local",
+			Subnet: "172.16.28/24",
+			Routes: []map[string]string{
+				{"dst": "0.0.0.0/0"},
+			},
+		},
+	}
+
+	netDir := prepareTestNet(t, ctx, nt)
+	defer os.RemoveAll(netDir)
 
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
@@ -67,11 +77,8 @@ func TestSocketActivation(t *testing.T) {
 
 	echoImage := patchTestACI("rkt-inspect-echo.aci",
 		"--exec=/echo-socket-activated",
-		"--ports=test-port,protocol=tcp,port=80,socketActivated=true")
+		fmt.Sprintf("--ports=%d-tcp,protocol=tcp,port=%d,socketActivated=true", port, port))
 	defer os.Remove(echoImage)
-
-	ctx := testutils.NewRktRunCtx()
-	defer ctx.Cleanup()
 
 	conn, err := sd_dbus.New()
 	if err != nil {
@@ -93,8 +100,11 @@ func TestSocketActivation(t *testing.T) {
 	// (/run/systemd/system) to avoid calling LinkUnitFiles - it is buggy in
 	// systemd v219 as it does not work with absolute paths.
 	unitsDir := "/run/systemd/system"
+	containerIP := "172.16.28.101"
 
-	cmd := fmt.Sprintf("%s --insecure-options=image run --port=test-port:%d --mds-register=false %s", ctx.Cmd(), port, echoImage)
+	cmd := fmt.Sprintf("%s --insecure-options=image run --net=all --net=\"%s:IP=%s\" --mds-register=false %s",
+		ctx.Cmd(), nt.Name, containerIP, echoImage)
+
 	serviceContent := fmt.Sprintf(rktTestingEchoService, cmd)
 	serviceTargetBase := fmt.Sprintf("rkt-testing-socket-activation-%d.service", rnd)
 	serviceTarget := filepath.Join(unitsDir, serviceTargetBase)
@@ -110,15 +120,37 @@ func TestSocketActivation(t *testing.T) {
 
 	[Socket]
 	ListenStream=%d
+
+	[Install]
+	WantedBy=sockets.target
 	`
+
 	socketContent := fmt.Sprintf(rktTestingEchoSocket, port)
-	socketTargetBase := fmt.Sprintf("rkt-testing-socket-activation-%d.socket", rnd)
+	socketTargetBase := fmt.Sprintf("proxy-to-rkt-testing-socket-activation-%d.socket", rnd)
 	socketTarget := filepath.Join(unitsDir, socketTargetBase)
 
 	if err := ioutil.WriteFile(socketTarget, []byte(socketContent), 0666); err != nil {
 		t.Fatal(err)
 	}
 	defer os.Remove(socketTarget)
+
+	proxyToRktTestingEchoService := `
+	[Unit]
+	Requires=%s
+	After=%s
+
+	[Service]
+	ExecStart=/usr/lib/systemd/systemd-socket-proxyd %s:%d
+	`
+
+	proxyContent := fmt.Sprintf(proxyToRktTestingEchoService, serviceTargetBase, serviceTargetBase, containerIP, port)
+	proxyContentBase := fmt.Sprintf("proxy-to-rkt-testing-socket-activation-%d.service", rnd)
+	proxyTarget := filepath.Join(unitsDir, proxyContentBase)
+
+	if err := ioutil.WriteFile(proxyTarget, []byte(proxyContent), 0666); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(proxyTarget)
 
 	reschan := make(chan string)
 	doJob := func() {
@@ -140,6 +172,11 @@ func TestSocketActivation(t *testing.T) {
 		doJob()
 
 		if _, err := conn.StopUnit(serviceTargetBase, "replace", reschan); err != nil {
+			t.Fatal(err)
+		}
+		doJob()
+
+		if _, err := conn.StopUnit(proxyContentBase, "replace", reschan); err != nil {
 			t.Fatal(err)
 		}
 		doJob()
