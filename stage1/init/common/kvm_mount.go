@@ -180,15 +180,24 @@ func AppToSystemdMountUnits(root string, appName types.ACName, volumes []types.V
 
 		// assertion to make sure that "what" exists (created earlier by PodToSystemdHostMountUnits)
 		diag.Printf("checking required source path: %q", whatFullPath)
-		if _, err := os.Stat(whatFullPath); os.IsNotExist(err) {
+		if fileInfo, err := os.Stat(whatFullPath); os.IsNotExist(err) {
 			return fmt.Errorf("bug: missing source for volume %v", vol.Name)
-		}
-
-		// optionally prepare app directory
-		diag.Printf("optionally preparing destination path: %q", whereFullPath)
-		err := os.MkdirAll(whereFullPath, 0700)
-		if err != nil {
-			return errwrap.Wrap(fmt.Errorf("failed to prepare dir for mount %v", m.Volume), err)
+		} else {
+			// optionally prepare app file or directory
+			diag.Printf("optionally preparing destination path: %q", whereFullPath)
+			switch {
+			case fileInfo.IsDir():
+				if err := os.MkdirAll(whereFullPath, 0700); err != nil {
+					return errwrap.Wrap(fmt.Errorf("failed to prepare dir for mount %v", m.Volume), err)
+				}
+			case fileInfo.Mode().IsRegular():
+				if err := os.MkdirAll(filepath.Dir(whereFullPath), 0700); err != nil {
+					return errwrap.Wrap(fmt.Errorf("failed to prepare dir for file mount %v", m.Volume), err)
+				}
+				if _, err = os.Create(whereFullPath); err != nil {
+					return errwrap.Wrap(fmt.Errorf("failed to prepare file for mount %v", m.Volume), err)
+				}
+			}
 		}
 
 		// install new mount unit for bind mount /mnt/volumeName -> /opt/stage2/{app-id}/rootfs/{{mountPoint.Path}}
