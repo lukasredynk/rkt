@@ -32,9 +32,6 @@ import (
 )
 
 func TestSocketProxyd(t *testing.T) {
-	if !isKVM() {
-		t.Skipf("Only KVM flavour workaround for socket activation.")
-	}
 	if !sd_util.IsRunningSystemd() {
 		t.Skip("Systemd is not running on the host.")
 	}
@@ -57,7 +54,7 @@ func TestSocketProxyd(t *testing.T) {
 		Master: iface.Name,
 		Ipam: ipamTemplateT{
 			Type:   "host-local",
-			Subnet: "172.16.28.0/24",
+			Subnet: "192.168.0.1/24",
 			Routes: []map[string]string{
 				{"dst": "0.0.0.0/0"},
 			},
@@ -99,7 +96,7 @@ func TestSocketProxyd(t *testing.T) {
 	// (/run/systemd/system) to avoid calling LinkUnitFiles - it is buggy in
 	// systemd v219 as it does not work with absolute paths.
 	unitsDir := "/run/systemd/system"
-	containerIP := "172.16.28.101"
+	containerIP := "192.168.0.101"
 
 	cmd := fmt.Sprintf("%s --insecure-options=image run --net=\"%s:IP=%s\" --mds-register=false %s",
 		ctx.Cmd(), nt.Name, containerIP, echoImage)
