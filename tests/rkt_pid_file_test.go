@@ -44,14 +44,21 @@ func preparePidFileRace(t *testing.T, ctx *testutils.RktRunCtx, sleepImage strin
 	}
 	UUID := strings.Split(string(output), "\t")[0]
 
-	pidFileName := filepath.Join(ctx.DataDir(), "pods/run", UUID, "ppid")
-	if _, err := os.Stat(pidFileName); err != nil {
+	pidFileName := "ppid"
+
+	// KVM flavor uses pid instead of ppid file
+	if testutils.IsKVM() {
+		pidFileName = "pid"
+	}
+
+	pidFileNamePath := filepath.Join(ctx.DataDir(), "pods/run", UUID, pidFileName)
+	if _, err := os.Stat(pidFileNamePath); err != nil {
 		t.Fatalf("Pid file missing: %v", err)
 	}
 
 	// Temporarily move the ppid file away
-	pidFileNameBackup := pidFileName + ".backup"
-	if err := os.Rename(pidFileName, pidFileNameBackup); err != nil {
+	pidFileNameBackup := pidFileNamePath + ".backup"
+	if err := os.Rename(pidFileNamePath, pidFileNameBackup); err != nil {
 		t.Fatalf("Cannot move ppid file away: %v", err)
 	}
 
@@ -63,7 +70,7 @@ func preparePidFileRace(t *testing.T, ctx *testutils.RktRunCtx, sleepImage strin
 	// Enter should be able to wait until the ppid file appears
 	time.Sleep(1 * time.Second)
 
-	return runChild, enterChild, pidFileName, pidFileNameBackup
+	return runChild, enterChild, pidFileNamePath, pidFileNameBackup
 }
 
 // Check that "enter" is able to wait for the ppid file to be created
@@ -103,6 +110,23 @@ func TestPidFileDelayedStart(t *testing.T) {
 
 // Check that "enter" doesn't wait forever for the ppid file when the pod is terminated
 func TestPidFileAbortedStart(t *testing.T) {
+	var (
+		shouldSucceed string
+		processStatus int
+	)
+
+	// Configure escape sequence and expected exit code for flavors
+	if testutils.IsKVM() {
+		// For kvm, the escape character is ^Ax. This process will exit with code 0
+		// If the pod won't stop after sending the escape sequence, than the test will wait
+		// till go test timeout.
+		shouldSucceed = "\001\170"
+		processStatus = 0
+	} else {
+		// For nspawn, the escape character is ^]^]^]. This process will exit with code 1
+		shouldSucceed = "\035\035\035"
+		processStatus = 1
+	}
 	sleepImage := patchTestACI("rkt-inspect-sleep.aci", "--exec=/inspect --read-stdin")
 	defer os.Remove(sleepImage)
 
@@ -111,11 +135,11 @@ func TestPidFileAbortedStart(t *testing.T) {
 
 	runChild, enterChild, _, _ := preparePidFileRace(t, ctx, sleepImage)
 
-	// Terminate the pod with the escape sequence: ^]^]^]
-	if err := runChild.SendLine("\035\035\035"); err != nil {
+	// Terminate the pod with the escape sequence
+	if err := runChild.SendLine(shouldSucceed); err != nil {
 		t.Fatalf("Failed to terminate the pod: %v", err)
 	}
-	waitOrFail(t, runChild, 1)
+	waitOrFail(t, runChild, processStatus)
 
 	// Now the "enter" command terminates quickly
 	before := time.Now()

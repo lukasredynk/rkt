@@ -80,6 +80,9 @@ type imagePatch struct {
 // Test running pod manifests that contains just one app.
 // TODO(yifan): Figure out a way to test port mapping on single host.
 func TestPodManifest(t *testing.T) {
+	if testutils.IsKVM() {
+		t.Skip("TODO: kvm")
+	}
 	ctx := testutils.NewRktRunCtx()
 	defer ctx.Cleanup()
 

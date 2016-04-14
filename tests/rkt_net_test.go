@@ -34,6 +34,9 @@ import (
  * Container must have the same network namespace as the host
  */
 func TestNetHost(t *testing.T) {
+	if testutils.IsKVM() {
+		t.Skip("--net=host is not available in KVM flavor")
+	}
 	testImageArgs := []string{"--exec=/inspect --print-netns"}
 	testImage := patchTestACI("rkt-inspect-networking.aci", testImageArgs...)
 	defer os.Remove(testImage)
@@ -69,6 +72,9 @@ func TestNetHost(t *testing.T) {
  * localhost address
  */
 func TestNetHostConnectivity(t *testing.T) {
+	if testutils.IsKVM() {
+		t.Skip("--net=host is not available in KVM flavor")
+	}
 	logger.SetLogger(t)
 
 	httpPort, err := testutils.GetNextFreePort4()
@@ -122,6 +128,9 @@ func TestNetHostConnectivity(t *testing.T) {
  * must be in an empty netns
  */
 func TestNetNone(t *testing.T) {
+	if testutils.IsKVM() {
+		t.Skip("--net=none is not available in KVM flavor")
+	}
 	testImageArgs := []string{"--exec=/inspect --print-netns --print-iface-count"}
 	testImage := patchTestACI("rkt-inspect-networking.aci", testImageArgs...)
 	defer os.Remove(testImage)
@@ -302,7 +311,7 @@ func TestNetDefaultRestrictedConnectivity(t *testing.T) {
 		cmd := fmt.Sprintf("%s --debug --insecure-options=image run %s --mds-register=false %s", ctx.Cmd(), argument, testImage)
 		child := spawnOrFail(t, cmd)
 
-		expectedRegex := `IPv4: (.*)\r`
+		expectedRegex := `IPv4: (\d+\.\d+\.\d+\.\d+)`
 		result, out, err := expectRegexWithOutput(child, expectedRegex)
 		if err != nil {
 			t.Fatalf("Error: %v\nOutput: %v", err, out)
@@ -405,7 +414,11 @@ func TestNetDefaultPortFwdConnectivity(t *testing.T) {
 		ga.Wait()
 	}
 	f("172.16.28.1", "--net=default", true)
-	f("127.0.0.1", "--net=default", true)
+	if !testutils.IsKVM() {
+		f("127.0.0.1", "--net=default", true)
+	} else {
+		t.Skip("Broadcast on localhost is not supported by KVM flavor")
+	}
 
 	// TODO: ensure that default-restricted is not accessible from non-host
 	// f("172.16.28.1", "--net=default-restricted", true)
@@ -524,7 +537,7 @@ func testNetCustomDual(t *testing.T, nt networkTemplateT) {
 			ga.Fatalf("Error: %v\nOutput: %v", err, out)
 		}
 		container1IPv4 <- result[1]
-		expectedRegex = `(rkt-.*): serving on`
+		expectedRegex = ` ([a-zA-Z0-9\-]*): serving on`
 		result, out, err = expectRegexTimeoutWithOutput(child, expectedRegex, 30*time.Second)
 		if err != nil {
 			ga.Fatalf("Error: %v\nOutput: %v", err, out)
@@ -547,7 +560,7 @@ func testNetCustomDual(t *testing.T, nt networkTemplateT) {
 		defer ga.WaitOrFail(child)
 
 		expectedHostname := <-container1Hostname
-		expectedRegex := `HTTP-Get received: (.*)\r`
+		expectedRegex := `HTTP-Get received: (.*?)\r`
 		result, out, err := expectRegexTimeoutWithOutput(child, expectedRegex, 20*time.Second)
 		if err != nil {
 			ga.Fatalf("Error: %v\nOutput: %v", err, out)
@@ -618,7 +631,7 @@ func testNetCustomNatConnectivity(t *testing.T, nt networkTemplateT) {
 		child := ga.SpawnOrFail(cmd)
 		defer ga.WaitOrFail(child)
 
-		expectedRegex := `HTTP-Get received: (.*)\r`
+		expectedRegex := `HTTP-Get received: (.*?)\r`
 		result, out, err := expectRegexWithOutput(child, expectedRegex)
 		if err != nil {
 			ga.Fatalf("Error: %v\nOutput: %v", err, out)
@@ -645,10 +658,16 @@ func TestNetCustomPtp(t *testing.T) {
 		},
 	}
 	testNetCustomNatConnectivity(t, nt)
-	testNetCustomDual(t, nt)
+	// PTP means connection Point-To-Point. That is, connections to other pods/containers should be forbidden
+	if !testutils.IsKVM() {
+		testNetCustomDual(t, nt)
+	}
 }
 
 func TestNetCustomMacvlan(t *testing.T) {
+	if testutils.IsKVM() {
+		t.Skip("TODO: kvm")
+	}
 	iface, _, err := testutils.GetNonLoIfaceWithAddrs(netlink.FAMILY_V4)
 	if err != nil {
 		t.Fatalf("Error while getting non-lo host interface: %v\n", err)
@@ -670,6 +689,9 @@ func TestNetCustomMacvlan(t *testing.T) {
 }
 
 func TestNetCustomBridge(t *testing.T) {
+	if testutils.IsKVM() {
+		t.Skip("This test influences the stability of the test suite")
+	}
 	iface, _, err := testutils.GetNonLoIfaceWithAddrs(netlink.FAMILY_V4)
 	if err != nil {
 		t.Fatalf("Error while getting non-lo host interface: %v\n", err)
@@ -697,6 +719,9 @@ func TestNetCustomBridge(t *testing.T) {
 }
 
 func TestNetOverride(t *testing.T) {
+	if testutils.IsKVM() {
+		t.Skip("This test influences the stability of the test suite")
+	}
 	ctx := testutils.NewRktRunCtx()
 	defer ctx.Cleanup()
 

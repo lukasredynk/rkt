@@ -296,6 +296,9 @@ func TestAPIServiceGetInfo(t *testing.T) {
 }
 
 func TestAPIServiceListInspectPods(t *testing.T) {
+	if testutils.IsKVM() {
+		t.Skip("TODO: kvm")
+	}
 	ctx := testutils.NewRktRunCtx()
 	defer ctx.Cleanup()
 
@@ -442,6 +445,10 @@ func TestAPIServiceListInspectImages(t *testing.T) {
 }
 
 func TestAPIServiceCgroup(t *testing.T) {
+	if testutils.IsKVM() {
+		t.Skip("TODO: kvm")
+	}
+
 	ctx := testutils.NewRktRunCtx()
 	defer ctx.Cleanup()
 

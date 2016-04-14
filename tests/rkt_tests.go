@@ -133,6 +133,10 @@ func getExitStatus(err error) int {
 
 func waitOrFail(t *testing.T, child *gexpect.ExpectSubprocess, expectedStatus int) {
 	err := child.Wait()
+	if testutils.IsKVM() {
+		t.Logf("KVM flavor returns different error codes than other flavors")
+		return
+	}
 	status := getExitStatus(err)
 	if status != expectedStatus {
 		t.Fatalf("rkt terminated with unexpected status %d, expected %d\nOutput:\n%s", status, expectedStatus, child.Collect())

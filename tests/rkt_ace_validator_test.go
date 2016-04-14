@@ -23,6 +23,9 @@ import (
 )
 
 func TestAceValidator(t *testing.T) {
+	if testutils.IsKVM() {
+		t.Skip("TODO: kvm")
+	}
 	newStringSet := func(strs ...string) map[string]struct{} {
 		m := make(map[string]struct{}, len(strs))
 		for _, s := range strs {

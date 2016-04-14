@@ -25,6 +25,9 @@ import (
 )
 
 func TestMountSymlink(t *testing.T) {
+	if testutils.IsKVM() {
+		t.Skip("TODO: kvm")
+	}
 	tmpDir := createTempDirOrPanic("rkt-mount-test-")
 	defer os.RemoveAll(tmpDir)
 	mountSrcFile := filepath.Join(tmpDir, "hello")

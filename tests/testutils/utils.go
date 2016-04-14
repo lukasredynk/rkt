@@ -36,3 +36,7 @@ func WaitOrTimeout(t *testing.T, timeout time.Duration, notify chan struct{}) {
 	case <-notify:
 	}
 }
+
+func IsKVM() bool {
+	return GetValueFromEnvOrPanic("RKT_STAGE1_DEFAULT_FLAVOR") == "kvm"
+}

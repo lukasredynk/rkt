@@ -77,6 +77,14 @@ func TestCaps(t *testing.T) {
 	ctx := testutils.NewRktRunCtx()
 	defer ctx.Cleanup()
 
+	var stages []int
+	if testutils.IsKVM() {
+		t.Log("KVM is running VMs as stage1 pods, so root has got access to all VM options. Case with access to PID 1 is skipped... ")
+		stages = []int{2}
+	} else {
+		stages = append(stages, []int{1, 2}...)
+	}
+
 	for i, tt := range capsTests {
 		stage1Args := []string{"--exec=/inspect --print-caps-pid=1 --print-user"}
 		stage2Args := []string{"--exec=/inspect --print-caps-pid=0 --print-user"}
@@ -90,14 +98,19 @@ func TestCaps(t *testing.T) {
 		defer os.Remove(stage2FileName)
 		stageFileNames := []string{stage1FileName, stage2FileName}
 
-		for _, stage := range []int{1, 2} {
+		for _, stage := range stages {
 			t.Logf("Running test #%v: %v [stage %v]", i, tt.testName, stage)
 
 			cmd := fmt.Sprintf("%s --debug --insecure-options=image run --mds-register=false --set-env=CAPABILITY=%d %s", ctx.Cmd(), int(tt.capa), stageFileNames[stage-1])
 			child := spawnOrFail(t, cmd)
 
 			expectedLine := tt.capa.String()
-			if (stage == 1 && tt.capInStage1Expected) || (stage == 2 && tt.capInStage2Expected) {
+
+			// KVM flavor runs systemd stage1 with full capabilities in stage1 (pid=1)
+			// so expect every capability enabled here
+			capInStage1Expected := tt.capInStage1Expected || testutils.IsKVM()
+
+			if (stage == 1 && capInStage1Expected) || (stage == 2 && tt.capInStage2Expected) {
 				expectedLine += "=enabled"
 			} else {
 				expectedLine += "=disabled"
