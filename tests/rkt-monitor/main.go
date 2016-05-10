@@ -15,6 +15,7 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -23,7 +24,9 @@ import (
 	"strconv"
 	"time"
 
+	"flag"
 	"github.com/appc/spec/schema"
+	"github.com/shirou/gopsutil/load"
 	"github.com/shirou/gopsutil/process"
 	"github.com/spf13/cobra"
 )
@@ -43,6 +46,7 @@ var (
 	flagVerbose    bool
 	flagDuration   string
 	flagShowOutput bool
+	saveToCsv      string
 
 	cmdRktMonitor = &cobra.Command{
 		Use:     "rkt-monitor IMAGE",
@@ -58,6 +62,10 @@ func init() {
 	cmdRktMonitor.Flags().BoolVarP(&flagVerbose, "verbose", "v", false, "Print current usage every second")
 	cmdRktMonitor.Flags().StringVarP(&flagDuration, "duration", "d", "10s", "How long to run the ACI")
 	cmdRktMonitor.Flags().BoolVarP(&flagShowOutput, "show-output", "o", false, "Display rkt's stdout and stderr")
+	cmdRktMonitor.Flags().BoolVar()
+	cmdRktMonitor.Flags().StringVarP(&saveToCsv, "out", "result.csv", "Save benchmark results to csv.file")
+
+	flag.Parse()
 }
 
 func main() {
@@ -81,6 +89,13 @@ func runRktMonitor(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	fcsv, err := os.Create(saveToCsv)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		os.Exit(1)
+	}
+	defer fcsv.Close()
+
 	f, err := os.Open(args[0])
 	if err != nil {
 		fmt.Printf("%v\n", err)
@@ -97,19 +112,23 @@ func runRktMonitor(cmd *cobra.Command, args []string) {
 
 	var execCmd *exec.Cmd
 	if podManifest {
-		execCmd = exec.Command("rkt", "run", "--pod-manifest", args[0], "--net=host")
+		execCmd = exec.Command("rkt", "run", "--pod-manifest", args[0], "--net=default")
 	} else {
-		execCmd = exec.Command("rkt", "run", args[0], "--insecure-options=image", "--net=host")
+		execCmd = exec.Command("rkt", "run", args[0], "--insecure-options=image", "--net=default")
 	}
 	if flagShowOutput {
 		execCmd.Stdout = os.Stdout
 		execCmd.Stderr = os.Stderr
 	}
+
+	containerStarting := time.Now()
+
 	err = execCmd.Start()
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
 	}
+	containerStarted := time.Now()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -134,6 +153,9 @@ func runRktMonitor(cmd *cobra.Command, args []string) {
 		if flagVerbose {
 			printUsage(usage)
 		}
+		if saveToCsv {
+			saveUsage(usage)
+		}
 
 		for _, ps := range usage {
 			usages[ps.Pid] = append(usages[ps.Pid], ps)
@@ -149,11 +171,14 @@ func runRktMonitor(cmd *cobra.Command, args []string) {
 		time.Sleep(time.Second)
 	}
 
+	loadAvg, err := load.Avg()
+
+	containerStoping := time.Now()
 	err = killAllChildren(int32(execCmd.Process.Pid))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "cleanup failed: %v\n", err)
 	}
-
+	containerStoped := time.Now()
 	for _, processHistory := range usages {
 		var avgCPU float64
 		var avgMem uint64
@@ -172,6 +197,10 @@ func runRktMonitor(cmd *cobra.Command, args []string) {
 
 		fmt.Printf("%s(%d): seconds alive: %d  avg CPU: %f%%  avg Mem: %s  peak Mem: %s\n", processHistory[0].Name, processHistory[0].Pid, len(processHistory), avgCPU, formatSize(avgMem), formatSize(peakMem))
 	}
+	fmt.Printf("load average: Load1: %f Load5: %f Load15: %f\n", loadAvg.Load1, loadAvg.Load5, loadAvg.Load15)
+
+	fmt.Printf("container start time: %dns\n", containerStarted.Sub(containerStarting).Nanoseconds())
+	fmt.Printf("container stop time: %dns\n", containerStoped.Sub(containerStoping).Nanoseconds())
 }
 
 func killAllChildren(pid int32) error {
@@ -282,4 +311,15 @@ func printUsage(statuses []*ProcessStatus) {
 		fmt.Printf("%s(%d): Mem: %s CPU: %f\n", s.Name, s.Pid, formatSize(s.RSS), s.CPU)
 	}
 	fmt.Printf("\n")
+}
+
+func saveUsage(statuses []*ProcessStatus) {
+	writer := csv.NewWriter(saveToCsv)
+	defer writer.Flush()
+	for _, s := range statuses {
+		err := writer.Write([]string{s.Name, string(s.Pid), formatSize(s.RSS), string(s.CPU)})
+		if err != nil {
+			return nil, err
+		}
+	}
 }
