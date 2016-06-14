@@ -23,6 +23,10 @@ $(call setup-stamp-file,QEMU_BUILD_STAMP,/build)
 $(call setup-stamp-file,QEMU_BIOS_BUILD_STAMP,/bios_build)
 $(call setup-stamp-file,QEMU_CONF_STAMP,/conf)
 $(call setup-stamp-file,QEMU_CLONE_STAMP,/clone)
+$(call setup-stamp-file,QEMU_DIR_CLEAN_STAMP,/dir-clean)
+$(call setup-filelist-file,QEMU_DIR_FILELIST,/dir)
+$(call setup-clean-file,QEMU_CLEANMK,/src)
+
 
 S1_RF_SECONDARY_STAMPS += $(QEMU_STAMP)
 S1_RF_INSTALL_FILES += $(QEMU_BINARY):$(QEMU_ACI_BINARY):-
@@ -30,11 +34,11 @@ INSTALL_DIRS += \
     $(QEMU_SRCDIR) :- \
     $(QEMU_TMPDIR) :-
 
-$(call generate-stamp-rule,$(QEMU_STAMP),$(QEMU_CLONE_STAMP) $(QEMU_CONF_STAMP) $(QEMU_BUILD_STAMP) $(QEMU_ACI_BINARY) $(QEMU_BIOS_BUILD_STAMP),,)
+$(call generate-stamp-rule,$(QEMU_STAMP),$(QEMU_CLONE_STAMP) $(QEMU_CONF_STAMP) $(QEMU_BUILD_STAMP) $(QEMU_ACI_BINARY) $(QEMU_BIOS_BUILD_STAMP) $(QEMU_DIR_CLEAN_STAMP),,)
 
 $(QEMU_BINARY): $(QEMU_BUILD_STAMP)
 
-$(call generate-stamp-rule,$(QEMU_BIOS_BUILD_STAMP),$(QEMU_CONF_STAMP),, \
+$(call generate-stamp-rule,$(QEMU_BIOS_BUILD_STAMP),$(QEMU_CONF_STAMP) $(UFK_CBU_STAMP),, \
   	for bios in $(QEMU_BIOS_BINARIES); do \
         $(call vb,vt,COPY BIOS,$$$${bios}) \
   	  	cp $(QEMU_SRCDIR)/pc-bios/$$$${bios} $(S1_RF_ACIROOTFSDIR)/$$$${bios} $(call vl2,>/dev/null); \
@@ -48,6 +52,15 @@ $(call generate-stamp-rule,$(QEMU_BUILD_STAMP),$(QEMU_CONF_STAMP),, \
 $(call generate-stamp-rule,$(QEMU_CONF_STAMP),$(QEMU_CLONE_STAMP),, \
 	$(call vb,vt,CONFIG EXT,qemu) \
 	cd $(QEMU_SRCDIR); ./configure $(QEMU_CONFIGURATOR) $(QEMU_CONFIGURATION_OPTS) $(call vl2,>/dev/null))
+
+# Generate filelist of qemu directory (this is both srcdir and
+# builddir). Can happen after build finished.
+$(QEMU_DIR_FILELIST): $(QEMU_BUILD_STAMP)
+$(call generate-deep-filelist,$(QEMU_DIR_FILELIST),$(QEMU_SRCDIR))
+
+# Generate clean.mk cleaning qemu directory
+$(call generate-clean-mk,$(QEMU_DIR_CLEAN_STAMP),$(QEMU_CLEANMK),$(QEMU_DIR_FILELIST),$(QEMU_SRCDIR))
+
 
 GCL_REPOSITORY := $(QEMU_GIT)
 GCL_DIRECTORY := $(QEMU_SRCDIR)
