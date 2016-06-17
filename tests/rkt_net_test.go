@@ -892,9 +892,9 @@ func NewNetPreserveNetNameTest() testutils.Test {
 		defer os.RemoveAll(netdir)
 		defer os.Remove(ntFlannel.SubnetFile)
 
-		runList, listOutput := make(chan bool), make(chan bool)
+		startList := make(chan bool)
 		ga := testutils.NewGoroutineAssistant(t)
-		ga.Add(2)
+		ga.Add(1)
 
 		go func() {
 			// busybox with mock'd flannel network
@@ -906,33 +906,27 @@ func NewNetPreserveNetNameTest() testutils.Test {
 			if err != nil {
 				t.Fatal("Can't spawn container")
 			}
-			runList <- true
-			<-runList
+			startList <- true
+			<-startList
 
 			ga.WaitOrFail(child)
 		}()
 
-		go func() {
-			// rkt list
-			defer ga.Done()
-			<-runList
-			cmd := fmt.Sprintf("%s list", ctx.Cmd())
-			child := ga.SpawnOrFail(cmd)
+		<-startList
+		cmd := fmt.Sprintf("%s list", ctx.Cmd())
+		child := ga.SpawnOrFail(cmd)
 
-			_, _, err := expectRegexTimeoutWithOutput(child, "rkt.kubernetes.io", 30*time.Second)
-			if err != nil {
-				listOutput <- false
-			} else {
-				listOutput <- true
-			}
-			runList <- true
+		var netFound bool
+		_, _, err = expectRegexTimeoutWithOutput(child, "rkt.kubernetes.io", 30*time.Second)
+		if err != nil {
+			netFound = false
+		} else {
+			netFound = true
+		}
+		startList <- true
 
-			ga.WaitOrFail(child)
-		}()
-
-		netFound := <-listOutput
 		if !netFound {
-			t.Fatal("netName not set")
+			t.Fatal("netName not set or incorrect")
 		}
 	})
 }
@@ -949,13 +943,6 @@ func NewNetDefaultGWTest() testutils.Test {
 
 		defer os.RemoveAll(netdir)
 		defer os.Remove(ntFlannel.SubnetFile)
-
-		ga := testutils.NewGoroutineAssistant(t)
-		ga.Add(2)
-
-		testImageArgs := []string{"--exec=/inspect --print-netns"}
-		testImage := patchTestACI("rkt-inspect-networking1.aci", testImageArgs...)
-		defer os.Remove(testImage)
 
 		cmd := fmt.Sprintf("%s --debug --insecure-options=image run --net=%s --mds-register=false docker://busybox --exec ip -- route", ctx.Cmd(), ntFlannel.Name)
 		child := spawnOrFail(t, cmd)
