@@ -28,6 +28,7 @@ import (
 	"github.com/coreos/rkt/tests/testutils"
 	"github.com/coreos/rkt/tests/testutils/logger"
 	"github.com/vishvananda/netlink"
+	"strings"
 )
 
 /*
@@ -496,12 +497,12 @@ func writeNetwork(t *testing.T, net networkTemplateT, netd string) error {
 }
 
 type networkTemplateT struct {
-	Name       string             `json:"name"`
-	Type       string             `json:"type"`
-	SubnetFile string             `json:"subnetFile,omitempty"`
-	Master     string             `json:"master,omitempty"`
-	IpMasq     bool               `json:",omitempty"`
-	IsGateway  bool               `json:",omitempty"`
+	Name       string
+	Type       string
+	SubnetFile string `json:"subnetFile,omitempty"`
+	Master     string `json:"master,omitempty"`
+	IpMasq     bool
+	IsGateway  bool
 	Bridge     string             `json:"bridge,omitempty"`
 	Ipam       *ipamTemplateT     `json:",omitempty"`
 	Delegate   *delegateTemplateT `json:",omitempty"`
@@ -846,6 +847,10 @@ func NewTestNetLongName() testutils.Test {
 	})
 }
 
+/*
+ * mockFlannelNetwork creates fake flannel network status file and configuration pointing to this network.
+ * We won't have connectivity, but we could check if: netName was correct and if default gateway was set.
+ */
 func mockFlannelNetwork(t *testing.T, ctx *testutils.RktRunCtx) (string, networkTemplateT, error) {
 	// write fake flannel info
 	subnetPath := filepath.Join(ctx.DataDir(), "subnet.env")
@@ -853,13 +858,17 @@ func mockFlannelNetwork(t *testing.T, ctx *testutils.RktRunCtx) (string, network
 	if err != nil {
 		return "", networkTemplateT{}, err
 	}
-	mockedFlannel := fmt.Sprintf("FLANNEL_NETWORK=10.1.0.0/16\nFLANNEL_SUBNET=10.1.17.1/24\nFLANNEL_MTU=1472\nFLANNEL_IPMASQ=true\n")
-	_, err = file.WriteString(mockedFlannel)
-	if err != nil {
+	mockedFlannel := strings.Join([]string{
+		"FLANNEL_NETWORK=11.11.0.0/16",
+		"FLANNEL_SUBNET=11.11.3.1/24",
+		"FLANNEL_MTU=1472",
+		"FLANNEL_IPMASQ=true",
+	}, "\n")
+	if _, err = file.WriteString(mockedFlannel); err != nil {
 		return "", networkTemplateT{}, err
 	}
 
-	_ = file.Close()
+	file.Close()
 
 	// write net config for "flannel" based network
 	ntFlannel := networkTemplateT{
@@ -877,7 +886,7 @@ func mockFlannelNetwork(t *testing.T, ctx *testutils.RktRunCtx) (string, network
 }
 
 /*
- * Check if netName is set if network is configured via flannel
+ * NewNetPreserveNetNameTest checks if netName is set if network is configured via flannel
  */
 func NewNetPreserveNetNameTest() testutils.Test {
 	return testutils.TestFunc(func(t *testing.T) {
@@ -902,8 +911,7 @@ func NewNetPreserveNetNameTest() testutils.Test {
 			cmd := fmt.Sprintf("%s --debug --insecure-options=image run --net=%v --mds-register=false docker://busybox --exec /bin/sh -- -c \"echo 'sleeping' && sleep 120 \"", ctx.Cmd(), ntFlannel.Name)
 			child := ga.SpawnOrFail(cmd)
 
-			_, _, err := expectRegexTimeoutWithOutput(child, "sleeping", 30*time.Second)
-			if err != nil {
+			if _, _, err := expectRegexTimeoutWithOutput(child, "sleeping", 30*time.Second); err != nil {
 				t.Fatal("Can't spawn container")
 			}
 			startList <- true
@@ -917,8 +925,7 @@ func NewNetPreserveNetNameTest() testutils.Test {
 		child := ga.SpawnOrFail(cmd)
 
 		var netFound bool
-		_, _, err = expectRegexTimeoutWithOutput(child, "rkt.kubernetes.io", 30*time.Second)
-		if err != nil {
+		if _, _, err = expectRegexTimeoutWithOutput(child, "rkt.kubernetes.io", 30*time.Second); err != nil {
 			netFound = false
 		} else {
 			netFound = true
@@ -931,6 +938,9 @@ func NewNetPreserveNetNameTest() testutils.Test {
 	})
 }
 
+/*
+ * NewNetDefaultGWTest checks if default gateway is correct if only configured network is one provided by flannel.
+ */
 func NewNetDefaultGWTest() testutils.Test {
 	return testutils.TestFunc(func(t *testing.T) {
 		ctx := testutils.NewRktRunCtx()
@@ -949,8 +959,7 @@ func NewNetDefaultGWTest() testutils.Test {
 		defer waitOrFail(t, child, 0)
 
 		expectedRegex := `default via (\d+\.\d+\.\d+\.\d+)`
-		result, out, err := expectRegexTimeoutWithOutput(child, expectedRegex, 30*time.Second)
-		if err != nil {
+		if result, out, err := expectRegexTimeoutWithOutput(child, expectedRegex, 30*time.Second); err != nil {
 			t.Fatalf("Result: %v\nError: %v\nOutput: %v", result, err, out)
 		}
 	})
