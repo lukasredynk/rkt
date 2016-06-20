@@ -901,28 +901,29 @@ func NewNetPreserveNetNameTest() testutils.Test {
 		defer os.RemoveAll(netdir)
 		defer os.Remove(ntFlannel.SubnetFile)
 
-		startList := make(chan bool)
+		startList, resumeContainer := make(chan bool), make(chan bool)
 		ga := testutils.NewGoroutineAssistant(t)
 		ga.Add(1)
 
 		go func() {
 			// busybox with mock'd flannel network
 			defer ga.Done()
-			cmd := fmt.Sprintf("%s --debug --insecure-options=image run --net=%v --mds-register=false docker://busybox --exec /bin/sh -- -c \"echo 'sleeping' && sleep 120 \"", ctx.Cmd(), ntFlannel.Name)
+			cmd := fmt.Sprintf("%s --debug --insecure-options=image run --net=%s --mds-register=false docker://busybox --exec /bin/sh -- -c \"echo 'sleeping' && sleep 120 \"", ctx.Cmd(), ntFlannel.Name)
 			child := ga.SpawnOrFail(cmd)
 
 			if _, _, err := expectRegexTimeoutWithOutput(child, "sleeping", 30*time.Second); err != nil {
 				t.Fatal("Can't spawn container")
 			}
 			startList <- true
-			<-startList
+			<-resumeContainer
 
 			ga.WaitOrFail(child)
 		}()
 
 		<-startList
 		cmd := fmt.Sprintf("%s list", ctx.Cmd())
-		child := ga.SpawnOrFail(cmd)
+		child := spawnOrFail(t, cmd)
+		defer waitOrFail(t, child, 0)
 
 		var netFound bool
 		if _, _, err = expectRegexTimeoutWithOutput(child, "rkt.kubernetes.io", 30*time.Second); err != nil {
@@ -930,7 +931,7 @@ func NewNetPreserveNetNameTest() testutils.Test {
 		} else {
 			netFound = true
 		}
-		startList <- true
+		resumeContainer <- true
 
 		if !netFound {
 			t.Fatal("netName not set or incorrect")
