@@ -27,12 +27,12 @@ $(call setup-stamp-file,QEMU_DIR_CLEAN_STAMP,/dir-clean)
 $(call setup-filelist-file,QEMU_DIR_FILELIST,/dir)
 $(call setup-clean-file,QEMU_CLEANMK,/src)
 
-
 S1_RF_SECONDARY_STAMPS += $(QEMU_STAMP)
 S1_RF_INSTALL_FILES += $(QEMU_BINARY):$(QEMU_ACI_BINARY):-
 INSTALL_DIRS += \
     $(QEMU_SRCDIR) :- \
     $(QEMU_TMPDIR) :-
+$(foreach bios, $(QEMU_BIOS_BINARIES), $(eval CLEAN_FILES += $(S1_RF_ACIROOTFSDIR)/${bios}))
 
 $(call generate-stamp-rule,$(QEMU_STAMP),$(QEMU_CLONE_STAMP) $(QEMU_CONF_STAMP) $(QEMU_BUILD_STAMP) $(QEMU_ACI_BINARY) $(QEMU_BIOS_BUILD_STAMP) $(QEMU_DIR_CLEAN_STAMP),,)
 
@@ -60,7 +60,6 @@ $(call generate-deep-filelist,$(QEMU_DIR_FILELIST),$(QEMU_SRCDIR))
 
 # Generate clean.mk cleaning qemu directory
 $(call generate-clean-mk,$(QEMU_DIR_CLEAN_STAMP),$(QEMU_CLEANMK),$(QEMU_DIR_FILELIST),$(QEMU_SRCDIR))
-
 
 GCL_REPOSITORY := $(QEMU_GIT)
 GCL_DIRECTORY := $(QEMU_SRCDIR)
