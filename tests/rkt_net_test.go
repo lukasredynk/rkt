@@ -956,7 +956,7 @@ func NewNetDefaultGWTest() testutils.Test {
 		defer os.RemoveAll(netdir)
 		defer os.Remove(ntFlannel.SubnetFile)
 
-		cmd := fmt.Sprintf("%s --debug --insecure-options=image run --net=%s --mds-register=false docker://busybox --exec ip -- route", ctx.Cmd(), ntFlannel.Name)
+		cmd := fmt.Sprintf("%s --debug --insecure-options=image run --net=%s --mds-register=false docker://busybox --exec sh -- -c 'sleep 3 && ip route'", ctx.Cmd(), ntFlannel.Name)
 		child := spawnOrFail(t, cmd)
 		defer waitOrFail(t, child, 0)
 
