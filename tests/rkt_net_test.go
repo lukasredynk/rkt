@@ -910,14 +910,13 @@ func NewNetPreserveNetNameTest() testutils.Test {
 			defer ga.Done()
 			cmd := fmt.Sprintf("%s --debug --insecure-options=image run --net=%s --mds-register=false docker://busybox --exec /bin/sh -- -c \"echo 'sleeping' && sleep 120 \"", ctx.Cmd(), ntFlannel.Name)
 			child := ga.SpawnOrFail(cmd)
+			defer ga.WaitOrFail(child)
 
 			if _, _, err := expectRegexTimeoutWithOutput(child, "sleeping", 30*time.Second); err != nil {
 				t.Fatal("Can't spawn container")
 			}
 			startList <- true
 			<-resumeContainer
-
-			ga.WaitOrFail(child)
 		}()
 
 		<-startList
@@ -936,6 +935,8 @@ func NewNetPreserveNetNameTest() testutils.Test {
 		if !netFound {
 			t.Fatal("netName not set or incorrect")
 		}
+
+		ga.Wait()
 	})
 }
 
