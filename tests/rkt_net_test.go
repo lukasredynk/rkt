@@ -901,7 +901,7 @@ func NewNetPreserveNetNameTest() testutils.Test {
 		defer os.RemoveAll(netdir)
 		defer os.Remove(ntFlannel.SubnetFile)
 
-		startList, resumeContainer := make(chan bool), make(chan bool)
+		startList, resumeContainer := make(chan struct{}), make(chan struct{})
 		ga := testutils.NewGoroutineAssistant(t)
 		ga.Add(1)
 
@@ -913,9 +913,9 @@ func NewNetPreserveNetNameTest() testutils.Test {
 			defer ga.WaitOrFail(child)
 
 			if _, _, err := expectRegexTimeoutWithOutput(child, "sleeping", 30*time.Second); err != nil {
-				t.Fatal("Can't spawn container")
+				t.Fatal("Can't spawn container: %v", err)
 			}
-			startList <- true
+			startList <- struct{}{}
 			<-resumeContainer
 		}()
 
@@ -924,16 +924,10 @@ func NewNetPreserveNetNameTest() testutils.Test {
 		child := spawnOrFail(t, cmd)
 		defer waitOrFail(t, child, 0)
 
-		var netFound bool
-		if _, _, err = expectRegexTimeoutWithOutput(child, "rkt.kubernetes.io", 30*time.Second); err != nil {
-			netFound = false
-		} else {
-			netFound = true
-		}
-		resumeContainer <- true
-
-		if !netFound {
-			t.Fatal("netName not set or incorrect")
+		result, out, err := expectRegexTimeoutWithOutput(child, "rkt.kubernetes.io", 30*time.Second)
+		resumeContainer <- struct{}{}
+		if err != nil {
+			t.Fatalf("netName not set or incorrect\nresult: %v\nerror: %v\noutput:%v", result, err, out)
 		}
 
 		ga.Wait()
@@ -956,13 +950,17 @@ func NewNetDefaultGWTest() testutils.Test {
 		defer os.RemoveAll(netdir)
 		defer os.Remove(ntFlannel.SubnetFile)
 
-		cmd := fmt.Sprintf("%s --debug --insecure-options=image run --net=%s --mds-register=false docker://busybox --exec sh -- -c 'sleep 3 && ip route'", ctx.Cmd(), ntFlannel.Name)
+		testImageArgs := []string{"--exec=/inspect --print-defaultgwv4"}
+		testImage := patchTestACI("rkt-inspect-networking1.aci", testImageArgs...)
+		defer os.Remove(testImage)
+
+		cmd := fmt.Sprintf("%s --debug --insecure-options=image run --net=%s --mds-register=false %s", ctx.Cmd(), ntFlannel.Name, testImage)
 		child := spawnOrFail(t, cmd)
 		defer waitOrFail(t, child, 0)
 
-		expectedRegex := `default via (\d+\.\d+\.\d+\.\d+)`
+		expectedRegex := `(\d+\.\d+\.\d+\.\d+)`
 		if result, out, err := expectRegexTimeoutWithOutput(child, expectedRegex, 30*time.Second); err != nil {
-			t.Fatalf("Result: %v\nError: %v\nOutput: %v", result, err, out)
+			t.Fatalf("No default gateway: result: %v\n error: %v\noutput: %v", result, err, out)
 		}
 	})
 }
