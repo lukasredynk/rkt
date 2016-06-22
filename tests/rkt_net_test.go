@@ -906,28 +906,42 @@ func NewNetPreserveNetNameTest() testutils.Test {
 		ga.Add(1)
 
 		go func() {
-			// busybox with mock'd flannel network
+			// start dummy container with 'flannel' network
 			defer ga.Done()
-			cmd := fmt.Sprintf("%s --debug --insecure-options=image run --net=%s --mds-register=false docker://busybox --exec /bin/sh -- -c \"echo 'sleeping' && sleep 120 \"", ctx.Cmd(), ntFlannel.Name)
+			testImageArgs := []string{"--exec=/inspect --print-msg=sleeping --sleep=10"}
+			testImage := patchTestACI("rkt-inspect-networking.aci", testImageArgs...)
+			defer os.Remove(testImage)
+
+			cmd := fmt.Sprintf("%s --debug --insecure-options=image run --net=%s --mds-register=false %s", ctx.Cmd(), ntFlannel.Name, testImage)
 			child := ga.SpawnOrFail(cmd)
 			defer ga.WaitOrFail(child)
 
-			if _, _, err := expectRegexTimeoutWithOutput(child, "sleeping", 30*time.Second); err != nil {
-				t.Fatal("Can't spawn container: %v", err)
+			// wait until stage2
+			if _, out, err := expectRegexTimeoutWithOutput(child, "sleeping", time.Minute); err != nil {
+				ga.Fatalf("Can't spawn container!\nError: %v\nOutput: %v", err, out)
 			}
+
+			// trigger 'rkt list'
 			startList <- struct{}{}
+
+			// wait with cleanup for 'rkt list' to finish
 			<-resumeContainer
 		}()
 
+		// start 'rkt list', check if 'rkt.kubernetes.io' is in output
 		<-startList
 		cmd := fmt.Sprintf("%s list", ctx.Cmd())
 		child := spawnOrFail(t, cmd)
 		defer waitOrFail(t, child, 0)
 
-		result, out, err := expectRegexTimeoutWithOutput(child, "rkt.kubernetes.io", 30*time.Second)
+		_, out, err := expectRegexTimeoutWithOutput(child, "rkt.kubernetes.io", time.Minute)
+
+		// resume rkt-inspect-networking container for cleanup
 		resumeContainer <- struct{}{}
+
+		// error indicates that either
 		if err != nil {
-			t.Fatalf("netName not set or incorrect\nresult: %v\nerror: %v\noutput:%v", result, err, out)
+			t.Fatalf("netName not set or incorrect!\nError: %v\nOutput: %v", err, out)
 		}
 
 		ga.Wait()
@@ -951,16 +965,16 @@ func NewNetDefaultGWTest() testutils.Test {
 		defer os.Remove(ntFlannel.SubnetFile)
 
 		testImageArgs := []string{"--exec=/inspect --print-defaultgwv4"}
-		testImage := patchTestACI("rkt-inspect-networking1.aci", testImageArgs...)
+		testImage := patchTestACI("rkt-inspect-networking.aci", testImageArgs...)
 		defer os.Remove(testImage)
 
 		cmd := fmt.Sprintf("%s --debug --insecure-options=image run --net=%s --mds-register=false %s", ctx.Cmd(), ntFlannel.Name, testImage)
 		child := spawnOrFail(t, cmd)
 		defer waitOrFail(t, child, 0)
 
-		expectedRegex := `(\d+\.\d+\.\d+\.\d+)`
-		if result, out, err := expectRegexTimeoutWithOutput(child, expectedRegex, 30*time.Second); err != nil {
-			t.Fatalf("No default gateway: result: %v\n error: %v\noutput: %v", result, err, out)
+		expectedRegex := `DefaultGWv4: (\d+\.\d+\.\d+\.\d+)`
+		if _, out, err := expectRegexTimeoutWithOutput(child, expectedRegex, time.Minute); err != nil {
+			t.Fatalf("No default gateway!\nError: %v\nOutput: %v", err, out)
 		}
 	})
 }
